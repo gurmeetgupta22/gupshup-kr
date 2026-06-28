@@ -1,38 +1,105 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+# Dependencies
+node_modules/
 .pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+.pnp.lock
 
-# testing
-/coverage
+# Testing
+coverage/
 
-# next.js
-/.next/
-/out/
+# Next.js
+.next
+*.local
 
-# production
-/build
+# Dist
+/dist
+build/
+*.bundle
+*.map
 
-# misc
+# Build output
+out/
+production/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Eclipse
+.project
+
+# Flutter
+.packages
+.pub-cache/
+.pub
+
+# Mac
 .DS_Store
-*.pem
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Editor
+.vscode/
+.idea/
 
-# vercel
-.vercel
+# Local config
+*.local
+*.development
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Temporary files
+tmp/
+temp/
+
+# Log files
+*.log
+
+# Package lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated files
+*.generated.js
+*.generated.ts
+
+# SQLite
+*.sqlite
+*.sqlite3
+
+# Build artifacts
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Windows
+tmp/
+Thumbs.db
+
+# Supabase
+postgres-data/
+
+# Expo
+.expo/
+""

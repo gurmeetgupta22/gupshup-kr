@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { EmojiAvatar, defaultEmojiAvatarConfig } from './EmojiAvatar';
 import { VibeSelector } from './VibeSelector';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, UserPlus, User, Bell, Check, X, MessageSquare, Users } from 'lucide-react';
+import { Search, UserPlus, User, Bell, Check, X, MessageSquare, Users, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { motion, AnimatePresence } from 'framer-motion';
 import { sendPushToUser } from '@/lib/notifications';
@@ -34,6 +34,8 @@ export function ChatSidebar({
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [friendshipStatuses, setFriendshipStatuses] = useState<Record<string, string>>({});
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chat: any } | null>(null);
+  const longPressTimer = useRef<any>(null);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -106,70 +108,276 @@ export function ChatSidebar({
     setUnreadCount(data?.filter(n => !n.read).length || 0);
   }
 
-    useEffect(() => {
-      async function fetchChats() {
-        const { data: participantData } = await supabase
-          .from('chat_participants')
-          .select('chat_id')
-          .eq('user_id', currentUserId);
-        
-        if (participantData && participantData.length > 0) {
-          const chatIds = participantData.map(d => d.chat_id);
-          
-          // Get chats with participants
-          const { data: chatsData } = await supabase
-            .from('chats')
-            .select(`
-              *,
-              participants:chat_participants(
-                user:profiles(*)
-              )
-            `)
-            .in('id', chatIds)
-            .order('updated_at', { ascending: false });
-          
-          // Get unread counts for each chat
-          const { data: unreadData } = await supabase
-            .from('messages')
-            .select('chat_id, id')
-            .in('chat_id', chatIds)
-            .neq('sender_id', currentUserId)
-            .is('read_at', null);
+  const fetchChats = useCallback(async () => {
+    const { data: participantData } = await supabase
+      .from('chat_participants')
+      .select('chat_id')
+      .eq('user_id', currentUserId);
 
-          const unreadMap: Record<string, number> = {};
-          unreadData?.forEach(m => {
-            unreadMap[m.chat_id] = (unreadMap[m.chat_id] || 0) + 1;
-          });
-          
-            // Deduplicate chats by other participant ID
-            const seenUsers = new Set<string>();
-            const uniqueChats = chatsData?.filter(chat => {
-              const otherUser = chat.participants?.find((p: any) => p.user?.id !== currentUserId)?.user;
-              if (!otherUser || seenUsers.has(otherUser.id)) return false;
-              seenUsers.add(otherUser.id);
-              return true;
-            }).map(chat => ({
-              ...chat,
-              unreadCount: unreadMap[chat.id] || 0
-            }));
-            
-            setChats(uniqueChats || []);
-          } else {
-            setChats([]);
-          }
+    if (participantData && participantData.length > 0) {
+      const chatIds = participantData.map(d => d.chat_id);
+
+      const { data: chatsData } = await supabase
+        .from('chats')
+        .select(`
+          *,
+          participants:chat_participants(
+            user:profiles(*)
+          )
+        `)
+        .in('id', chatIds)
+        .order('updated_at', { ascending: false, nullsLast: true });
+
+      // Fetch last_read_at for current user from chat_participants
+      const { data: lastReadData } = await supabase
+        .from('chat_participants')
+        .select('chat_id, last_read_at')
+        .in('chat_id', chatIds)
+        .eq('user_id', currentUserId);
+
+      const lastReadMap: Record<string, string> = {};
+      lastReadData?.forEach(p => {
+        if (p.last_read_at) lastReadMap[p.chat_id] = p.last_read_at;
+      });
+
+      // Count messages created after last_read_at (messages not yet seen by current user)
+      const { data: messagesData } = await supabase
+        .from('messages')
+        .select('chat_id, created_at')
+        .in('chat_id', chatIds)
+        .neq('sender_id', currentUserId);
+
+      const unreadMap: Record<string, number> = {};
+      messagesData?.forEach(m => {
+        const lastReadAt = lastReadMap[m.chat_id];
+        if (!lastReadAt || new Date(m.created_at) > new Date(lastReadAt)) {
+          unreadMap[m.chat_id] = (unreadMap[m.chat_id] || 0) + 1;
         }
+      });
 
-      fetchChats();
+      // Fetch last message for each chat
+      const { data: lastMessagesData } = await supabase
+        .from('messages')
+        .select('chat_id, content, message_type, created_at')
+        .in('chat_id', chatIds)
+        .order('created_at', { ascending: false });
 
-        const sub = supabase
-        .channel('chats_list')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, () => fetchChats())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_participants' }, () => fetchChats())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchChats())
-        .subscribe();
+      // Get latest message per chat
+      const lastMessageMap: Record<string, { content: string; message_type: string; created_at: string }> = {};
+      lastMessagesData?.forEach(m => {
+        if (!lastMessageMap[m.chat_id]) {
+          lastMessageMap[m.chat_id] = {
+            content: m.content,
+            message_type: m.message_type,
+            created_at: m.created_at
+          };
+        }
+      });
 
-    return () => { sub.unsubscribe(); };
-  }, [currentUserId, friends]);
+      const seenUsers = new Set<string>();
+      const uniqueChats = chatsData?.filter(chat => {
+        const otherUser = chat.participants?.find((p: any) => p.user?.id !== currentUserId)?.user;
+        if (!otherUser || seenUsers.has(otherUser.id)) return false;
+        seenUsers.add(otherUser.id);
+        return true;
+      }).map(chat => {
+        const lastMsg = lastMessageMap[chat.id];
+        return {
+          ...chat,
+          unreadCount: chat.id === selectedChatId ? 0 : (unreadMap[chat.id] || 0),
+          lastMessage: lastMsg ? {
+            content: lastMsg.message_type === 'image' ? '📷 Photo' : (!lastMsg.content || lastMsg.content === 'This message was deleted' ? 'This message was deleted' : lastMsg.content.length > 60 ? lastMsg.content.substring(0, 60) + '...' : lastMsg.content),
+            timestamp: lastMsg.created_at,
+            message_type: lastMsg.message_type,
+          } : null
+        };
+      });
+
+      // Sort: unread chats first, then by last_message_timestamp desc
+      uniqueChats?.sort((a, b) => {
+        if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+        if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+        const aTime = a.lastMessage?.timestamp || a.updated_at || 0;
+        const bTime = b.lastMessage?.timestamp || b.updated_at || 0;
+        return new Date(bTime).getTime() - new Date(aTime).getTime();
+      });
+
+      setChats(uniqueChats || []);
+    } else {
+      setChats([]);
+    }
+  }, [currentUserId, selectedChatId]);
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'now';
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    if (diffDays < 7) return `${diffDays}d`;
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
+  const showContextMenu = (e: React.MouseEvent | React.TouchEvent, chat: any) => {
+    e.preventDefault();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    setContextMenu({ x: clientX, y: clientY, chat });
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleLongPress = (e: React.PointerEvent, chat: any) => {
+    longPressTimer.current = setTimeout(() => {
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+      setContextMenu({ x: clientX, y: clientY, chat });
+    }, 500);
+  };
+
+  const clearContextMenu = () => {
+    setContextMenu(null);
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleClearChat = async (chatId: string, otherUserName: string) => {
+    if (!confirm(`Clear all messages with ${otherUserName}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/chat/${chatId}/messages`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId })
+      });
+      if (res.ok) {
+        // Emit WebSocket event to other participant
+        window.dispatchEvent(new CustomEvent('chat-cleared', { detail: { roomId: chatId } }));
+        setChats(prev => prev.map(c => c.id === chatId ? { ...c, lastMessage: null } : c));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        console.error('Failed to clear chat:', data.error || res.statusText);
+        alert('Failed to clear chat. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to clear chat:', err);
+      alert('Failed to clear chat. Please try again.');
+    }
+    clearContextMenu();
+  };
+
+  const handleDeleteChat = async (chatId: string, otherUserName: string) => {
+    if (!confirm(`Delete chat with ${otherUserName}? This will remove the conversation entirely.`)) return;
+    try {
+      const res = await fetch(`/api/chat/${chatId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUserId })
+      });
+      if (res.ok) {
+        window.dispatchEvent(new CustomEvent('chat-deleted', { detail: { roomId: chatId } }));
+        setChats(prev => prev.filter(c => c.id !== chatId));
+        if (selectedChatId === chatId) {
+          onSelectChat(null);
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        console.error('Failed to delete chat:', data.error || res.statusText);
+        alert('Failed to delete chat. Please try again.');
+      }
+    } catch (err) {
+      console.error('Failed to delete chat:', err);
+      alert('Failed to delete chat. Please try again.');
+    }
+    clearContextMenu();
+  };
+
+  useEffect(() => {
+    fetchChats();
+
+    const sub = supabase
+      .channel('chats_list')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, () => fetchChats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_participants' }, () => fetchChats())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        // Real-time: increment unread count for new messages when chat is NOT open
+        if (selectedChatId !== payload.new.chat_id) {
+          setChats(prev => prev.map(c => {
+            if (c.id === payload.new.chat_id && payload.new.sender_id !== currentUserId) {
+              return { ...c, unreadCount: (c.unreadCount || 0) + 1 };
+            }
+            return c;
+          }));
+        }
+      })
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.warn('Chats list subscription status:', status);
+        }
+      });
+
+    const handleRefresh = () => fetchChats();
+    window.addEventListener('refresh-chats', handleRefresh);
+
+    return () => { sub.unsubscribe(); window.removeEventListener('refresh-chats', handleRefresh); };
+  }, [currentUserId, friends, fetchChats, selectedChatId]);
+
+  // Click outside to close context menu
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenu) {
+        clearContextMenu();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [contextMenu]);
+
+  // Listen for chat_cleared and chat_deleted events from other tabs/participants
+  useEffect(() => {
+    const handleChatCleared = (e: CustomEvent) => {
+      const { roomId } = e.detail;
+      setChats(prev => prev.map(c => c.id === roomId ? { ...c, lastMessage: null } : c));
+    };
+    const handleChatDeleted = (e: CustomEvent) => {
+      const { roomId } = e.detail;
+      setChats(prev => prev.filter(c => c.id !== roomId));
+      if (selectedChatId === roomId) {
+        onSelectChat(null);
+      }
+    };
+    window.addEventListener('chat-cleared', handleChatCleared as EventListener);
+    window.addEventListener('chat-deleted', handleChatDeleted as EventListener);
+    return () => {
+      window.removeEventListener('chat-cleared', handleChatCleared as EventListener);
+      window.removeEventListener('chat-deleted', handleChatDeleted as EventListener);
+    };
+  }, [selectedChatId, onSelectChat]);
+
+  // Real-time unread count updates via WebSocket broadcasts
+  useEffect(() => {
+    const channel = supabase.channel(`sidebar_receipts:${currentUserId}`, { config: { broadcast: { self: false } } });
+    
+    channel
+      .on('broadcast', { event: 'delivery_receipt' }, () => {
+        // Refresh chats to update unread counts
+        fetchChats();
+      })
+      .on('broadcast', { event: 'read_receipt' }, ({ payload }) => {
+        const { roomId, seenMessageIds } = payload as { roomId: string; seenMessageIds: string[] };
+        setChats(prev => prev.map(c => {
+          if (c.id === roomId) {
+            return { ...c, unreadCount: Math.max(0, (c.unreadCount || 0) - seenMessageIds.length) };
+          }
+          return c;
+        }));
+      })
+      .subscribe();
+
+    return () => channel.unsubscribe();
+  }, [currentUserId, fetchChats]);
 
   const handleSearch = async (val: string) => {
     setSearch(val);
@@ -297,7 +505,7 @@ export function ChatSidebar({
           .from('chats')
           .select('is_group')
           .eq('id', commonChatId)
-          .single();
+          .maybeSingle();
         
         if (chatData && !chatData.is_group) {
           onSelectChat(commonChatId);
@@ -307,20 +515,21 @@ export function ChatSidebar({
       }
     }
 
-    const { data: newChat } = await supabase
+    const chatId = crypto.randomUUID();
+    const { error: chatError } = await supabase
       .from('chats')
-      .insert({ is_group: false })
-      .select()
-      .single();
+      .insert({ id: chatId, is_group: false });
 
-    if (newChat) {
-      await supabase.from('chat_participants').insert([
-        { chat_id: newChat.id, user_id: currentUserId },
-        { chat_id: newChat.id, user_id: friendId }
-      ]);
-      onSelectChat(newChat.id);
-      setActiveTab('chats');
-    }
+    if (chatError) return;
+
+    await supabase.from('chat_participants').insert([
+      { chat_id: chatId, user_id: currentUserId },
+      { chat_id: chatId, user_id: friendId }
+    ]);
+
+    onSelectChat(chatId);
+    setActiveTab('chats');
+    setTimeout(() => fetchChats(), 100);
   };
 
   const markNotificationRead = async (notifId: string) => {
@@ -447,20 +656,34 @@ export function ChatSidebar({
                   const otherParticipant = chat.participants?.find((p: any) => p.user?.id !== currentUserId)?.user;
                   if (!otherParticipant) return null;
 
-                  return (
+return (
                     <motion.button
                       key={chat.id}
-                      onClick={() => onSelectChat(chat.id)}
+                      onClick={() => { onSelectChat(chat.id); setChats(prev => prev.map(c => c.id === chat.id ? { ...c, unreadCount: 0 } : c)); }}
+                      onContextMenu={(e) => { e.preventDefault(); showContextMenu(e, chat); }}
+                      onMouseDown={(e) => { if (e.button === 0) { longPressTimer.current = setTimeout(() => showContextMenu(e, chat), 500); } }}
+                      onMouseUp={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
+                      onMouseLeave={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
+                      onTouchStart={(e) => { longPressTimer.current = setTimeout(() => showContextMenu(e, chat), 500); }}
+                      onTouchEnd={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
+                      onTouchMove={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                       className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${selectedChatId === chat.id ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 shadow-lg shadow-blue-500/10' : 'hover:bg-zinc-900 border border-transparent'}`}
                       whileHover={{ x: 4 }}
                       whileTap={{ scale: 0.98 }}
                     >
                         <EmojiAvatar config={otherParticipant.avatar_config || defaultEmojiAvatarConfig} size={50} />
-                        <div className="flex-1 text-left min-w-0">
-                          <p className="font-black text-white truncate">{otherParticipant.display_name}</p>
-                          <p className="text-sm text-zinc-500 truncate">{otherParticipant.vibe_status || '✨ Vibing'}</p>
+                          <div className="flex-1 text-left min-w-0">
+                            <p className="font-black text-white truncate">{otherParticipant.display_name}</p>
+                            <div className="flex items-center justify-between gap-2 min-w-0 flex-1">
+                              <p className={`text-sm truncate max-w-full ${chat.lastMessage?.content === 'This message was deleted' ? 'text-zinc-600 italic' : 'text-zinc-500'}`}>{chat.lastMessage?.content || otherParticipant.vibe_status || '✨ Vibing'}</p>
+                            {chat.lastMessage?.timestamp && (
+                              <span className="text-[10px] text-zinc-600 whitespace-nowrap flex-shrink-0">
+                                {formatTime(chat.lastMessage.timestamp)}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {chat.unreadCount > 0 && (
+                        {selectedChatId !== chat.id && chat.unreadCount > 0 && (
                             <motion.div 
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
@@ -469,8 +692,8 @@ export function ChatSidebar({
                               <span className="text-xs font-black text-white">{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>
                             </motion.div>
                           )}
-                      </motion.button>
-                  );
+                    </motion.button>
+                );
                 })
               )}
             </motion.div>
@@ -607,6 +830,33 @@ export function ChatSidebar({
           </Button>
         </div>
       </div>
+      {contextMenu && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="fixed z-[100] bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl py-1 min-w-[160px]"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            transform: `translate(${(contextMenu.x + 170 > window.innerWidth ? -170 : 0)}px, ${(contextMenu.y + 100 > window.innerHeight ? -100 : 0)}px)`
+          }}
+        >
+          <button
+            onClick={() => handleClearChat(contextMenu.chat.id, contextMenu.chat.participants?.find((p: any) => p.user?.id !== currentUserId)?.user?.display_name || 'them')}
+            className="w-full px-4 py-2 text-left text-white hover:bg-zinc-800 text-sm flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4 text-zinc-400" /> Clear Chat
+          </button>
+          <hr className="border-zinc-800 my-1" />
+          <button
+            onClick={() => handleDeleteChat(contextMenu.chat.id, contextMenu.chat.participants?.find((p: any) => p.user?.id !== currentUserId)?.user?.display_name || 'them')}
+            className="w-full px-4 py-2 text-left text-red-400 hover:bg-red-500/10 text-sm flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" /> Delete Chat
+          </button>
+        </motion.div>
+      )}
     </div>
   );
 }

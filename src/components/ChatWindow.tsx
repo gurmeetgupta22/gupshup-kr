@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { useChat } from '@/hooks/useChat';
 import { EmojiAvatar, defaultEmojiAvatarConfig } from './EmojiAvatar';
 import { Input } from '@/components/ui/input';
@@ -13,8 +13,8 @@ import { EmojiPicker } from './EmojiPicker';
 import { UserProfileModal } from './UserProfileModal';
 import { setCurrentViewingChat } from '@/lib/notifications';
 
-const QUICK_REACTIONS = ['❤️', '😂', '🔥', '💀', '👀', '✨'];
-const FLOATING_BG_EMOJIS = ['💬', '✨', '💜', '💙', '🔥', '😎', '💀', '👻', '⚡', '🎮', '💫', '🫠'];
+const QUICK_REACTIONS = ['\u{1F44D}', '\u2764\uFE0F', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}'];
+const FLOATING_BG_EMOJIS = ['\u{1F4AC}', '\u2728', '\u{1F49C}', '\u{1F499}', '\u{1F525}', '\u{1F60E}', '\u{1F480}', '\u{1F47B}', '\u26A1', '\u{1F3AE}', '\u{1F4AB}', '\u{1FAE0}'];
 
 type CallType = 'voice' | 'video' | null;
 type CallState = 'idle' | 'calling' | 'ringing' | 'connected' | 'denied';
@@ -28,34 +28,109 @@ function SwipeableMessage({
   onSwipeReply: () => void;
   isMe: boolean;
 }) {
-  const x = useMotionValue(0);
-  const replyOpacity = useTransform(x, [0, 60], [0, 1]);
-  const replyScale = useTransform(x, [0, 60], [0.5, 1]);
-  
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: { offset: { x: number } }) => {
-    if (info.offset.x > 60) {
-      onSwipeReply();
+  const [translateX, setTranslateX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startXRef = useRef(0);
+  const elementRef = useRef<HTMLDivElement>(null);
+  const dragStartedRef = useRef(false);
+
+  const MAX_DRAG = 80;
+  const REPLY_THRESHOLD = 60;
+
+  const applyTransform = (x: number) => {
+    const clamped = Math.max(0, Math.min(x, MAX_DRAG));
+    setTranslateX(clamped);
+    if (elementRef.current) {
+      elementRef.current.style.transform = `translateX(${clamped}px)`;
+      elementRef.current.style.transition = isDragging ? 'none' : 'transform 0.2s ease-out';
     }
   };
 
+  const handleStart = (clientX: number) => {
+    startXRef.current = clientX;
+    dragStartedRef.current = true;
+    setIsDragging(true);
+    if (elementRef.current) {
+      elementRef.current.style.transition = 'none';
+    }
+  };
+
+  const handleMove = (clientX: number) => {
+    if (!dragStartedRef.current) return;
+    const delta = clientX - startXRef.current;
+    if (delta > 0) {
+      applyTransform(delta);
+    }
+  };
+
+  const handleEnd = () => {
+    if (!dragStartedRef.current) return;
+    dragStartedRef.current = false;
+    setIsDragging(false);
+    const triggeredReply = translateX >= REPLY_THRESHOLD;
+    applyTransform(0);
+    if (triggeredReply) {
+      setTimeout(() => onSwipeReply(), 50);
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    handleStart(e.clientX);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    handleStart(e.touches[0].clientX);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragStartedRef.current) return;
+    e.preventDefault();
+    handleMove(e.clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!dragStartedRef.current) return;
+    handleMove(e.touches[0].clientX);
+  };
+
+  const handleMouseUp = () => handleEnd();
+  const handleTouchEnd = () => handleEnd();
+  const handleMouseLeave = () => handleEnd();
+  const handleTouchCancel = () => handleEnd();
+
   return (
-    <div className="relative">
-      <motion.div
-        className={`absolute top-1/2 -translate-y-1/2 ${isMe ? '-left-8' : '-left-8'}`}
-        style={{ opacity: replyOpacity, scale: replyScale }}
+    <div className="relative" ref={elementRef}>
+      <div
+        className={`absolute top-1/2 -translate-y-1/2 transition-opacity duration-150 ${isMe ? '-left-8' : '-left-8'}`}
+        style={{ 
+          opacity: translateX > 20 ? Math.min(1, (translateX - 20) / 40) : 0,
+          transform: `scale(${translateX > 20 ? Math.min(1, 0.5 + (translateX - 20) / 80) : 0.5})`
+        }}
       >
         <Reply className="w-5 h-5 text-blue-400" />
-      </motion.div>
-      <motion.div
-        drag="x"
-        dragConstraints={{ left: 0, right: 80 }}
-        dragElastic={0.1}
-        onDragEnd={handleDragEnd}
-        style={{ x }}
-        whileDrag={{ cursor: 'grabbing' }}
+      </div>
+      <div
+        ref={elementRef}
+        className="max-w-full overflow-hidden"
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onMouseMove={handleMouseMove}
+        onTouchMove={handleTouchMove}
+        onMouseUp={handleMouseUp}
+        onTouchEnd={handleTouchEnd}
+        onMouseLeave={handleMouseLeave}
+        onTouchCancel={handleTouchCancel}
+        style={{
+          transform: `translateX(${translateX}px)`,
+          transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+          touchAction: 'pan-y',
+          cursor: isDragging ? 'grabbing' : 'default',
+        }}
       >
         {children}
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -244,7 +319,7 @@ function CallOverlay({
               transition={{ repeat: Infinity, duration: 2 }}
               className="text-8xl mb-6"
             >
-              🚫
+              ðŸš«
             </motion.div>
             <h2 className="text-2xl font-black text-white mb-2">Permission Denied</h2>
             <p className="text-zinc-400 text-center mb-8 max-w-xs">
@@ -266,7 +341,7 @@ function CallOverlay({
               animate={{ opacity: [0.5, 1, 0.5] }}
               transition={{ repeat: Infinity, duration: 1.5 }}
             >
-              {callState === 'ringing' ? '📱 Ringing...' : callType === 'video' ? '📹 Video calling...' : '📞 Voice calling...'}
+              {callState === 'ringing' ? 'ðŸ“± Ringing...' : callType === 'video' ? 'ðŸ“¹ Video calling...' : 'ðŸ“ž Voice calling...'}
             </motion.p>
           </>
         ) : (
@@ -406,23 +481,41 @@ export function ChatWindow({
   onChangeBackground?: (bg: string) => void;
   initialCall?: { type: CallType; offer: any; from: string } | null;
 }) {
-  const { messages, sendMessage, loading, addReaction, removeReaction, editMessage, deleteMessage } = useChat(chatId);
+  const { messages, sendMessage, loading, addReaction, editMessage, deleteMessage, deleteForMe } = useChat(chatId);
   const [input, setInput] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [heartAnimations, setHeartAnimations] = useState<{ id: number; x: number; y: number }[]>([]);
-  const [activeReactionMsg, setActiveReactionMsg] = useState<string | null>(null);
-  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [contextMsg, setContextMsg] = useState<any>(null);
+  const lastTapRef = useRef<{ msgId: string; time: number } | null>(null);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState<any>(null);
-  const [showMessageActions, setShowMessageActions] = useState<string | null>(null);
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [editInput, setEditInput] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const hasScrolledUpRef = useRef(false);
+  const prevMessagesLengthRef = useRef(0);
+  const initialScrollDoneRef = useRef(false);
   const [chatInfo, setChatInfo] = useState<any>(null);
-  
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<{ top: number; left: number; above: boolean } | null>(null);
+  const [reactionRowHighlighted, setReactionRowHighlighted] = useState(false);
+  const [recentReactions, setRecentReactions] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('gupshup_recent_reactions') || '[]'); } catch { return []; }
+  });
+  const [showReactionUsers, setShowReactionUsers] = useState<{ emoji: string; users: { id: string; name: string }[] } | null>(null);
+  const [tick, setTick] = useState(0);
+  const mountedRef = useRef(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const firstUnreadIndexRef = useRef<number>(-1);
+  const dividerRef = useRef<HTMLDivElement>(null);
+
   const [callType, setCallType] = useState<CallType>(null);
   const [callState, setCallState] = useState<CallState>('idle');
   const [isMuted, setIsMuted] = useState(false);
@@ -439,6 +532,34 @@ export function ChatWindow({
   const pendingInitialCallRef = useRef(initialCall);
 
   const currentBg = CHAT_BACKGROUNDS.find(b => b.id === chatBackground) || CHAT_BACKGROUNDS[0];
+  const otherParticipant = chatInfo?.participants?.find((p: any) => p.user?.id !== currentUserId);
+  const otherUser = otherParticipant?.user;
+
+  // Periodic tick to update seen status relative time
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Find the last sent message (newest message from current user)
+  const lastSentMessage = useMemo(() => {
+    if (!messages.length) return null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender_id === currentUserId) {
+        return messages[i];
+      }
+    }
+    return null;
+  }, [messages, currentUserId]);
+
+  const getLastMessageStatus = useCallback((msg: any) => {
+    if (!otherUser?.id || !msg) return 'not_delivered';
+    if (msg.read_by?.includes(otherUser.id)) return 'seen';
+    if (msg.delivered_to?.includes(otherUser.id)) return 'delivered';
+    return 'not_delivered';
+  }, [otherUser]);
 
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -446,40 +567,169 @@ export function ChatWindow({
     }
   }, []);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+  const scrollToMessage = useCallback((targetMsgId: string) => {
+    const el = document.querySelector(`[data-msg-id="${targetMsgId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedMsgId(targetMsgId);
+      setTimeout(() => setHighlightedMsgId(null), 1200);
+    }
+  }, []);
 
   useEffect(() => {
     setCurrentViewingChat(chatId);
+    firstUnreadIndexRef.current = -1;
+    prevMessagesLengthRef.current = 0; // reset for new chat
+    initialScrollDoneRef.current = false; // reset so the new chat opens at its own latest message
     return () => setCurrentViewingChat(null);
   }, [chatId]);
 
+  // Track scroll position
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      hasScrolledUpRef.current = scrollTop + clientHeight < scrollHeight - 50;
+    };
+    container.addEventListener('scroll', onScroll);
+    return () => container.removeEventListener('scroll', onScroll);
+  }, [loading, chatInfo]);
+
+  // Auto-scroll: useLayoutEffect for immediate scroll after DOM mutations
+  useLayoutEffect(() => {
+    // Don't do anything until the real chat UI (and its scroll container) is actually mounted.
+    // Messages can finish loading before chatInfo does — if we ran this while the loading
+    // spinner was still showing, messagesContainerRef.current would be null, the scroll
+    // would silently no-op, and we'd never get a second chance to scroll to the bottom.
+    if (loading || !chatInfo) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    if (!initialScrollDoneRef.current) {
+      // Initial load (or first render after the loading screen clears): jump straight to the
+      // latest message, no animation.
+      if (messages.length > 0) {
+        container.scrollTop = container.scrollHeight;
+        initialScrollDoneRef.current = true;
+        prevMessagesLengthRef.current = messages.length;
+      }
+      return;
+    }
+
+    if (messages.length > prevMessagesLengthRef.current) {
+      // New message arrived: only auto-scroll if the user is already at the bottom
+      prevMessagesLengthRef.current = messages.length;
+      if (!hasScrolledUpRef.current && messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [messages, loading, chatInfo]);
+
   useEffect(() => {
     async function fetchChatInfo() {
-      const { data } = await supabase
-        .from('chats')
-        .select(`
-          *,
-          participants:chat_participants(
-            user:profiles(*),
-            nickname
-          )
-        `)
-        .eq('id', chatId)
-        .single();
-      
-      setChatInfo(data);
-      
-      const myParticipant = data?.participants?.find((p: any) => p.user?.id === currentUserId);
-      if (myParticipant?.nickname) {
-        setNickname(myParticipant.nickname);
+      try {
+        const { data, error } = await supabase
+          .from('chats')
+          .select(`
+            *,
+            participants:chat_participants(
+              user:profiles(*),
+              nickname,
+              last_read_at
+            )
+          `)
+          .eq('id', chatId)
+          .single();
+
+        if (!error && data) {
+          setChatInfo(data);
+          
+          const myParticipant = data?.participants?.find((p: any) => p.user?.id === currentUserId);
+          if (myParticipant?.nickname) {
+            setNickname(myParticipant.nickname);
+          }
+        }
+      } catch (err) {
+        console.error('fetchChatInfo error:', err);
       }
     }
     fetchChatInfo();
   }, [chatId, currentUserId]);
 
-  const otherUser = chatInfo?.participants?.find((p: any) => p.user?.id !== currentUserId)?.user;
+  // Listen for chat_participants updates (specifically last_read_at)
+  useEffect(() => {
+    if (!chatId) return;
+
+    const channel = supabase
+      .channel(`chat_participants:${chatId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'chat_participants',
+        filter: `chat_id=eq.${chatId}`
+      }, (payload) => {
+        setChatInfo((prev: any) => {
+          if (!prev) return prev;
+          const updatedParticipants = prev.participants?.map((p: any) => {
+            if (p.user?.id === payload.new.user_id) {
+              return { ...p, last_read_at: payload.new.last_read_at };
+            }
+            return p;
+          });
+          return { ...prev, participants: updatedParticipants };
+        });
+      })
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [chatId]);
+
+  // Listen for chat_cleared and chat_deleted events
+  useEffect(() => {
+    const channel = supabase.channel(`chat_events:${chatId}`, { config: { broadcast: { self: false } } });
+    
+    channel
+      .on('broadcast', { event: 'chat_cleared' }, ({ payload }) => {
+        if (payload.roomId === chatId) {
+          // Clear messages locally
+          setMessages([]);
+        }
+      })
+      .on('broadcast', { event: 'chat_deleted' }, ({ payload }) => {
+        if (payload.roomId === chatId && onBack) {
+          onBack();
+        }
+      })
+      .subscribe();
+
+    return () => channel.unsubscribe();
+  }, [chatId, currentUserId, onBack]);
+
+  // Listen for real-time read receipts broadcast from receiver and update chatInfo immediately.
+  // This allows getMessageStatus to show "seen" without waiting for a DB poll.
+  useEffect(() => {
+    if (!chatId) return;
+    const handler = (e: Event) => {
+      const { chatId: evtChatId, userId, readAt } = (e as CustomEvent).detail;
+      if (evtChatId !== chatId) return;
+      setChatInfo((prev: any) => {
+        if (!prev) return prev;
+        const updatedParticipants = prev.participants?.map((p: any) => {
+          if (p.user?.id === userId) {
+            return { ...p, last_read_at: readAt };
+          }
+          return p;
+        });
+        return { ...prev, participants: updatedParticipants };
+      });
+    };
+    window.addEventListener('chat-participant-read', handler);
+    return () => window.removeEventListener('chat-participant-read', handler);
+  }, [chatId]);
+
 
   const createPeerConnection = useCallback(() => {
     const config = {
@@ -786,64 +1036,184 @@ export function ChatWindow({
     const content = input;
     setInput('');
     const replyId = replyingTo?.id;
+    let replyTo = null;
+    if (replyId) {
+      const replyMsg = messages.find(m => m.id === replyId);
+      if (replyMsg) {
+        let senderName = replyMsg.sender?.display_name || null;
+        if (!senderName) {
+          const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', replyMsg.sender_id).single();
+          senderName = profile?.display_name || 'Unknown';
+        }
+        replyTo = {
+          messageId: replyMsg.id,
+          senderId: replyMsg.sender_id,
+          senderName,
+          preview: replyMsg.message_type === 'image' ? 'ðŸ“· Photo' : replyMsg.content.substring(0, 80)
+        };
+      }
+    }
     setReplyingTo(null);
-    await sendMessage(content, currentUserId, 'text', replyId);
+    await sendMessage(content, currentUserId, 'text', replyId, replyTo);
   };
 
-  const handleDoubleTap = (e: React.MouseEvent | React.TouchEvent, msg: any) => {
-    if (msg.sender_id === currentUserId) {
-      setShowMessageActions(showMessageActions === msg.id ? null : msg.id);
-    } else {
-      const newHeart = { id: Date.now(), x: 'clientX' in e ? e.clientX : 0, y: 'clientY' in e ? e.clientY : 0 };
-      setHeartAnimations(prev => [...prev, newHeart]);
-      setTimeout(() => {
-        setHeartAnimations(prev => prev.filter(h => h.id !== newHeart.id));
-      }, 1000);
-      handleReaction(msg.id, '❤️');
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !chatId) return;
+
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be under 5MB');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${chatId}/${Date.now()}.${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('chat-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-images')
+        .getPublicUrl(fileName);
+
+      const replyId = replyingTo?.id;
+      let replyTo = null;
+      if (replyId) {
+        const replyMsg = messages.find(m => m.id === replyId);
+        if (replyMsg) {
+          let senderName = replyMsg.sender?.display_name || null;
+          if (!senderName) {
+            const { data: profile } = await supabase.from('profiles').select('display_name').eq('id', replyMsg.sender_id).single();
+            senderName = profile?.display_name || 'Unknown';
+          }
+          replyTo = {
+            messageId: replyMsg.id,
+            senderId: replyMsg.sender_id,
+            senderName,
+            preview: replyMsg.message_type === 'image' ? 'ðŸ“· Photo' : replyMsg.content.substring(0, 80)
+          };
+        }
+      }
+      setReplyingTo(null);
+      await sendMessage(publicUrl, currentUserId, 'image', replyId, replyTo);
+    } catch (err: any) {
+      alert('Failed to upload image: ' + err.message);
+    } finally {
+      setUploadingImage(false);
+      if (e.target) e.target.value = '';
     }
   };
 
   const handleEdit = (msg: any) => {
     setEditingMessage(msg);
     setEditInput(msg.content);
-    setShowMessageActions(null);
+    setContextMsg(null);
   };
 
   const handleSaveEdit = async () => {
     if (!editingMessage || !editInput.trim()) return;
-    await editMessage(editingMessage.id, editInput);
+    setEditError(null);
+    const result = await editMessage(editingMessage.id, editInput);
+    if (result?.error) {
+      setEditError(result.error.message);
+      return;
+    }
     setEditingMessage(null);
     setEditInput('');
   };
 
-  const handleUnsend = async (msgId: string) => {
+  const handleDeleteEveryone = async (msgId: string) => {
     await deleteMessage(msgId);
-    setShowMessageActions(null);
+    setContextMsg(null);
   };
 
-  const handleDoubleClick = (e: React.MouseEvent, msgId: string) => {
-    const newHeart = { id: Date.now(), x: e.clientX, y: e.clientY };
-    setHeartAnimations(prev => [...prev, newHeart]);
-    setTimeout(() => {
-      setHeartAnimations(prev => prev.filter(h => h.id !== newHeart.id));
-    }, 1000);
-    
-    handleReaction(msgId, '❤️');
+  const handleDeleteForMe = async (msgId: string) => {
+    await deleteForMe(msgId, currentUserId);
+    setContextMsg(null);
   };
 
   const handleReaction = async (messageId: string, emoji: string) => {
-    const msg = messages.find(m => m.id === messageId);
-    const existingReaction = msg?.reactions?.find(
-      (r: any) => r.user_id === currentUserId && r.emoji === emoji
-    );
-    
-    if (existingReaction) {
-      await removeReaction(messageId, emoji, currentUserId);
-    } else {
-      await addReaction(messageId, emoji, currentUserId);
-    }
-    setActiveReactionMsg(null);
+    await addReaction(messageId, emoji, currentUserId);
+    setRecentReactions(prev => {
+      const updated = [emoji, ...prev.filter((e: string) => e !== emoji)].slice(0, 6);
+      try { localStorage.setItem('gupshup_recent_reactions', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    closeContextMenu();
   };
+
+  const handleReactionClick = (msg: any, emoji: string) => {
+    addReaction(msg.id, emoji, currentUserId);
+  };
+
+  const calculateMenuPos = useCallback((msgEl: HTMLElement) => {
+    const rect = msgEl.getBoundingClientRect();
+    const popupW = 220;
+    const popupH = 260;
+    const gap = 6;
+    const above = rect.top > popupH + gap;
+    let left = rect.left + rect.width / 2 - popupW / 2;
+    if (left < 8) left = 8;
+    if (left + popupW > window.innerWidth - 8) left = window.innerWidth - popupW - 8;
+    const top = above ? rect.top - popupH - gap : rect.bottom + gap;
+    return { top, left, above };
+  }, []);
+
+  const openContextMenu = useCallback((target: HTMLElement, msg: any) => {
+    const msgEl = target.closest('[data-msg-id]') as HTMLElement || target;
+    const pos = calculateMenuPos(msgEl);
+    setContextMenuPos(pos);
+    setContextMsg(msg);
+  }, [calculateMenuPos]);
+
+  const closeContextMenu = useCallback(() => {
+    setContextMsg(null);
+    setContextMenuPos(null);
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent, msg: any) => {
+    const now = Date.now();
+    const lastTap = lastTapRef.current;
+    if (lastTap && lastTap.msgId === msg.id && now - lastTap.time < 300) {
+      // Double-tap detected
+      openContextMenu(e.currentTarget as HTMLElement, msg);
+      lastTapRef.current = null; // prevent triple-tap
+    } else {
+      lastTapRef.current = { msgId: msg.id, time: now };
+    }
+  }, [openContextMenu]);
+
+const handlePointerUp = useCallback(() => {}, []);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, msg: any) => {
+    e.preventDefault();
+    openContextMenu(e.currentTarget as HTMLElement, msg);
+  }, [openContextMenu]);
+
+  useEffect(() => {
+    if (!contextMsg) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        closeContextMenu();
+      }
+    };
+    const handleScroll = () => closeContextMenu();
+    const handleResize = () => closeContextMenu();
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [contextMsg, closeContextMenu]);
 
   if (loading || !chatInfo) return (
     <div className="flex-1 flex items-center justify-center bg-black">
@@ -852,7 +1222,7 @@ export function ChatWindow({
         transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
         className="text-5xl"
       >
-        ⏳
+        â³
       </motion.div>
     </div>
   );
@@ -973,7 +1343,7 @@ export function ChatWindow({
             exit={{ opacity: 0 }}
             transition={{ duration: 1 }}
           >
-            ❤️
+            â¤ï¸
           </motion.div>
         ))}
       </AnimatePresence>
@@ -1003,7 +1373,7 @@ export function ChatWindow({
               onClick={() => setShowUserProfile(true)}
             >
               <h3 className="font-black text-base md:text-lg text-white">{nickname || otherUser?.display_name}</h3>
-              <p className="text-xs text-zinc-500 font-bold">{otherUser?.vibe_status || '✨ Vibing'}</p>
+              <p className="text-xs text-zinc-500 font-bold">{otherUser?.vibe_status || 'âœ¨ Vibing'}</p>
             </div>
           </div>
         <div className="flex items-center gap-1 md:gap-2">
@@ -1019,7 +1389,7 @@ export function ChatWindow({
           className="flex-1 overflow-y-auto p-4 md:p-6 relative z-10 scroll-smooth"
           style={{ minHeight: 0 }}
         >
-          <div className="space-y-4 max-w-4xl mx-auto">
+          <div className="flex flex-col max-w-4xl mx-auto" style={{ gap: '16px' }}>
             <AnimatePresence initial={false}>
               {messages.map((msg, i) => {
                 const isMe = msg.sender_id === currentUserId;
@@ -1028,14 +1398,35 @@ export function ChatWindow({
                   acc[r.emoji] = (acc[r.emoji] || 0) + 1;
                   return acc;
                 }, {});
+                const isEditing = editingMessage?.id === msg.id;
                 
                 return (
+                  <React.Fragment key={msg.id}>
+                  {i === firstUnreadIndexRef.current && firstUnreadIndexRef.current !== -1 && (
+                    <div key="unread-divider" ref={dividerRef} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      margin: '12px 16px'
+                    }}>
+                      <div style={{ flex: 1, height: '1px', background: 'rgba(124,58,237,0.4)' }} />
+                      <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                        New Messages
+                      </span>
+                      <div style={{ flex: 1, height: '1px', background: 'rgba(124,58,237,0.4)' }} />
+                    </div>
+                  )}
                   <motion.div
                     key={msg.id}
-                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                    data-msg-id={msg.id}
+                    initial={messages.length > 20 ? false : { opacity: 0, scale: 0.8, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2 md:gap-3`}
+                    transition={messages.length > 20 ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 30 }}
+                    className={`transition-all duration-700 ${highlightedMsgId === msg.id ? 'bg-blue-500/10 rounded-2xl -mx-2 px-2' : ''} ${isMe ? 'self-end flex flex-col items-end' : 'self-start flex items-end gap-2 md:gap-3'} min-w-0`}
+                    onPointerDown={(e) => handlePointerDown(e, msg)}
+                    onPointerUp={handlePointerUp}
+                    onDoubleClick={(e) => { e.preventDefault(); handleContextMenu(e as any, msg); }}
+                    onContextMenu={(e) => handleContextMenu(e, msg)}
                   >
                       {!isMe && <EmojiAvatar config={msg.sender?.avatar_config || defaultEmojiAvatarConfig} size={32} className="mb-1 md:w-9 md:h-9 flex-shrink-0" />}
                       <SwipeableMessage 
@@ -1043,104 +1434,119 @@ export function ChatWindow({
                         isMe={isMe}
                       >
                         <div 
-                          className={`max-w-[75%] md:max-w-[70%] group relative min-w-0 ${Object.keys(groupedReactions).length > 0 ? 'mb-4' : ''}`}
-                          onDoubleClick={(e) => handleDoubleTap(e, msg)}
+                          className={`w-fit min-w-[60px] max-w-[75%] md:max-w-[65%] group relative ${isMe ? 'ml-auto' : ''} ${Object.keys(groupedReactions).length > 0 ? 'mb-6' : ''}`}
                         >
-                          {msg.reply_to && (
-                            <div className={`mb-1 px-3 py-1.5 rounded-xl bg-zinc-800/50 border-l-2 border-blue-500 text-xs ${isMe ? 'ml-auto max-w-fit' : ''}`}>
-                              <p className="text-zinc-400 font-bold text-[10px]">↩ {msg.reply_to.sender?.display_name || 'Someone'}</p>
-                              <p className="text-zinc-300 truncate max-w-[200px]">{msg.reply_to.content}</p>
-                            </div>
-                          )}
                           <motion.div 
                             className={`p-3 md:p-4 rounded-2xl md:rounded-3xl text-sm font-medium shadow-lg relative break-words ${isMe 
                               ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-lg' 
                               : 'bg-zinc-900 text-white border border-zinc-800 rounded-bl-lg'
                             }`}
                             whileHover={{ scale: 1.01 }}
-                            onClick={() => setActiveReactionMsg(activeReactionMsg === msg.id ? null : msg.id)}
                           >
-                              <span className="whitespace-pre-wrap break-all">{msg.content}</span>
-                              {msg.is_edited && (
+                            {msg.replyTo && !isEditing && (
+                              <div 
+                                className="mb-2 px-3 py-2 rounded bg-white/5 border-l-[3px] border-purple-500 text-xs"
+                                onClick={() => scrollToMessage(msg.replyTo.messageId)}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <p className="font-semibold text-[12px] text-purple-500 mb-0.5">{msg.replyTo.senderName}</p>
+                                <p className="text-zinc-400 text-[12px] line-clamp-2 overflow-hidden whitespace-pre-wrap">
+                                  {msg.replyTo.preview.startsWith('ðŸ“·') ? 'ðŸ“· Photo' : msg.replyTo.preview}
+                                </p>
+                              </div>
+                            )}
+                            {isEditing ? (
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    value={editInput}
+                                    onChange={(e) => { setEditInput(e.target.value); setEditError(null); }}
+                                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-sm text-white outline-none focus:border-blue-500"
+                                    autoFocus
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingMessage(null); }}
+                                  />
+                                  <button
+                                    onClick={handleSaveEdit}
+                                    className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-500 transition-colors flex-shrink-0"
+                                  >
+                                    âœ“
+                                  </button>
+                                  <button
+                                    onClick={() => { setEditingMessage(null); setEditError(null); }}
+                                    className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 transition-colors flex-shrink-0"
+                                  >
+                                    âœ•
+                                  </button>
+                                </div>
+                                {editError && (
+                                  <p className="text-red-400 text-[11px] mt-1">{editError}</p>
+                                )}
+                              </div>
+                            ) : msg.message_type === 'image' ? (
+                                <img
+                                  src={msg.content}
+                                  alt="Shared image"
+                                  className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                                  style={{ maxHeight: '300px' }}
+                                  onClick={(e) => { e.stopPropagation(); window.open(msg.content, '_blank'); }}
+                                  onLoad={() => {
+                                    // Image messages load asynchronously and can grow the
+                                    // container's height after we've already scrolled down.
+                                    // Re-pin to the bottom if the user hasn't scrolled up.
+                                    if (!hasScrolledUpRef.current && messagesContainerRef.current) {
+                                      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                                    }
+                                  }}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', display: 'block', maxWidth: '100%' }}>{msg.content}</span>
+                              )}
+                              {msg.is_edited && !isEditing && (
                                 <span className="text-[9px] text-white/50 ml-2">(edited)</span>
                               )}
                         </motion.div>
                           
                           {Object.keys(groupedReactions).length > 0 && (
                             <div className={`absolute -bottom-3 ${isMe ? 'right-2' : 'left-2'} flex gap-0.5 z-10`}>
-                              {Object.entries(groupedReactions).map(([emoji, count]) => (
-                                <span 
-                                  key={emoji} 
-                                  className="text-xs bg-zinc-800 px-1.5 py-0.5 rounded-full border border-zinc-700 flex items-center gap-0.5 shadow-lg"
-                                >
-                                  {emoji}
-                                  {(count as number) > 1 && <span className="text-[9px] text-zinc-400">{count as number}</span>}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                      
-                        <AnimatePresence>
-                          {activeReactionMsg === msg.id && !isMe && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                              className={`absolute ${isMe ? 'right-0' : 'left-0'} -top-10 flex gap-1 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 shadow-xl z-20`}
-                            >
-                              {QUICK_REACTIONS.map((emoji) => {
+                              {Object.entries(groupedReactions).map(([emoji, count]) => {
                                 const hasReacted = reactions.some((r: any) => r.user_id === currentUserId && r.emoji === emoji);
                                 return (
-                                  <motion.button
+                                  <button
                                     key={emoji}
-                                    onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); }}
-                                    className={`text-base p-1 rounded-lg transition-colors ${hasReacted ? 'bg-blue-600' : 'hover:bg-zinc-800'}`}
-                                    whileHover={{ scale: 1.2 }}
-                                    whileTap={{ scale: 0.9 }}
+                                    onClick={(e) => { e.stopPropagation(); handleReactionClick(msg, emoji); }}
+                                    onPointerDown={(e) => {
+                                      const el = e.currentTarget as HTMLElement;
+                                      const badgeLongPress = setTimeout(() => {
+                                        const users = reactions.filter((r: any) => r.emoji === emoji);
+                                        supabase
+                                          .from('profiles')
+                                          .select('id, display_name')
+                                          .in('id', users.map((u: any) => u.user_id))
+                                          .then(({ data: profiles }) => {
+                                            setShowReactionUsers({
+                                              emoji,
+                                              users: (profiles || []).map((p: any) => ({ id: p.id, name: p.display_name }))
+                                            });
+                                          });
+                                      }, 500);
+                                      const handleUp = () => {
+                                        clearTimeout(badgeLongPress);
+                                        el.removeEventListener('pointerup', handleUp);
+                                        el.removeEventListener('pointerleave', handleUp);
+                                      };
+                                      el.addEventListener('pointerup', handleUp);
+                                      el.addEventListener('pointerleave', handleUp);
+                                    }}
+                                    className={`text-xs px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 shadow-lg transition-colors ${hasReacted ? 'bg-blue-600/20 border-blue-500' : 'bg-zinc-800 border-zinc-700 hover:bg-zinc-700'}`}
                                   >
                                     {emoji}
-                                  </motion.button>
+                                    {(count as number) > 1 && <span className="text-[9px] text-zinc-400">{count as number}</span>}
+                                  </button>
                                 );
                               })}
-                              <motion.button
-                                onClick={(e) => { e.stopPropagation(); setShowReactionPicker(msg.id); setActiveReactionMsg(null); }}
-                                className="text-base p-1 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400"
-                                whileHover={{ scale: 1.2 }}
-                                whileTap={{ scale: 0.9 }}
-                              >
-                                <Plus className="w-4 h-4" />
-                              </motion.button>
-                            </motion.div>
+                            </div>
                           )}
-                        </AnimatePresence>
-
-                        <AnimatePresence>
-                          {showMessageActions === msg.id && isMe && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                              className="absolute right-0 -top-12 flex gap-1 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 shadow-xl z-20"
-                            >
-                              <motion.button
-                                onClick={(e) => { e.stopPropagation(); handleEdit(msg); }}
-                                className="flex items-center gap-1 text-xs p-2 rounded-lg hover:bg-zinc-800 text-zinc-300"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                <Pencil className="w-3 h-3" /> Edit
-                              </motion.button>
-                              <motion.button
-                                onClick={(e) => { e.stopPropagation(); handleUnsend(msg.id); }}
-                                className="flex items-center gap-1 text-xs p-2 rounded-lg hover:bg-red-500/20 text-red-400"
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                              >
-                                <Trash2 className="w-3 h-3" /> Unsend
-                              </motion.button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
                         
                         <AnimatePresence>
                           {showReactionPicker === msg.id && (
@@ -1154,15 +1560,46 @@ export function ChatWindow({
                           )}
                         </AnimatePresence>
                       
-                          <p className={`text-[10px] mt-1 font-bold text-zinc-600 uppercase tracking-widest ${isMe ? 'text-right' : 'text-left'} flex items-center justify-end gap-1`}>
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            {isMe && msg.read_at && (
-                              <span className="text-blue-500 lowercase text-[9px] font-black">Seen</span>
-                            )}
-                          </p>
+                              <p className={`text-[10px] mt-1 text-zinc-500 flex items-center justify-end gap-1`}>
+                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                  {isMe && msg.id === lastSentMessage?.id && (() => {
+                    const status = getLastMessageStatus(lastSentMessage);
+                    const colors = { seen: '#7c3aed', delivered: '#9ca3af', not_delivered: '#ef4444' };
+                    const getSeenTimeLabel = (lastReadAtStr?: string) => {
+                      if (!lastReadAtStr) return 'Seen';
+                      const date = new Date(lastReadAtStr);
+                      const now = new Date();
+                      const diffMs = now.getTime() - date.getTime();
+                      const diffMins = Math.floor(diffMs / 60000);
+                      const diffHours = Math.floor(diffMs / 3600000);
+
+                      if (diffMins < 1) return 'Seen just now';
+                      if (diffMins < 60) return `Seen ${diffMins}m ago`;
+                      return `Seen ${diffHours}h ago`;
+                    };
+
+                    const labels = {
+                      seen: getSeenTimeLabel(otherParticipant?.last_read_at),
+                      delivered: 'Delivered',
+                      not_delivered: 'Not delivered'
+                    };
+                    return (
+                      <div className="flex items-center justify-end mt-0.5">
+                        <span style={{
+                          fontSize: '10px',
+                          lineHeight: 1,
+                          color: colors[status],
+                        }}>
+                          {labels[status]}
+                        </span>
+                      </div>
+                    );
+                  })()}
                     </div>
                       </SwipeableMessage>
                   </motion.div>
+                  </React.Fragment>
                 );
               })}
             </AnimatePresence>
@@ -1171,26 +1608,82 @@ export function ChatWindow({
         </div>
 
         <AnimatePresence>
-          {editingMessage && (
+          {contextMsg && contextMenuPos && (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+              ref={contextMenuRef}
+              style={{ position: 'fixed', top: contextMenuPos.top, left: contextMenuPos.left, zIndex: 9999 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
             >
-              <div className="bg-zinc-900 rounded-2xl p-6 w-full max-w-md border border-zinc-800">
-                <h3 className="text-lg font-black text-white mb-4 flex items-center gap-2">
-                  <Pencil className="w-5 h-5 text-blue-400" /> Edit Message
-                </h3>
-                <Input
-                  value={editInput}
-                  onChange={(e) => setEditInput(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 text-white mb-4"
-                  autoFocus
-                />
-                <div className="flex gap-2 justify-end">
-                  <Button variant="ghost" onClick={() => setEditingMessage(null)}>Cancel</Button>
-                  <Button onClick={handleSaveEdit} className="bg-blue-600 hover:bg-blue-500">Save</Button>
+              <div className="bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden" style={{ width: '200px' }}>
+                {/* Row 1: Emoji strip */}
+                <div className={`flex items-center gap-0.5 px-3 py-2.5 border-b border-zinc-800 ${reactionRowHighlighted ? 'animate-pulse' : ''}`}>
+                  {[...new Set([...recentReactions, ...QUICK_REACTIONS])].slice(0, 6).map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => { handleReaction(contextMsg.id, emoji); }}
+                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors text-lg"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowReactionPicker(contextMsg.id);
+                      closeContextMenu();
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors text-lg text-zinc-400"
+                  >
+                    +
+                  </button>
+                </div>
+                {/* Row 2: Action menu */}
+                <div className="py-1">
+                  <button
+                    onClick={() => { setReplyingTo(contextMsg); closeContextMenu(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                  >
+                    <Reply className="w-4 h-4 text-blue-400" /> Reply
+                  </button>
+                  <button
+                    onClick={() => {
+                      setReactionRowHighlighted(true);
+                      setTimeout(() => setReactionRowHighlighted(false), 1000);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                  >
+                    <Smile className="w-4 h-4 text-yellow-400" /> React
+                  </button>
+                  {contextMsg.sender_id === currentUserId && (Date.now() - new Date(contextMsg.created_at).getTime()) < 15 * 60 * 1000 && (
+                    <button
+                      onClick={() => { handleEdit(contextMsg); closeContextMenu(); }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                    >
+                      <Pencil className="w-4 h-4 text-green-400" /> Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { handleDeleteForMe(contextMsg.id); closeContextMenu(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                  >
+                    <X className="w-4 h-4 text-zinc-400" /> Delete for me
+                  </button>
+                  {contextMsg.sender_id === currentUserId && (
+                    <button
+                      onClick={() => {
+                        if (confirm('Delete for everyone? This cannot be undone.')) {
+                          handleDeleteEveryone(contextMsg.id);
+                        }
+                        closeContextMenu();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-500/10 text-red-400 text-sm font-medium transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-400" /> Delete for everyone
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1207,8 +1700,8 @@ export function ChatWindow({
                 className="max-w-4xl mx-auto mb-2 px-4 py-2 bg-zinc-900 rounded-xl border-l-2 border-blue-500 flex justify-between items-center"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-blue-400 font-bold uppercase">Replying to {replyingTo.sender?.display_name || 'Someone'}</p>
-                  <p className="text-xs text-zinc-400 truncate">{replyingTo.content}</p>
+                  <p className="text-[10px] text-blue-400 font-bold uppercase">Replying to {replyingTo.sender?.display_name || (replyingTo.sender_id === currentUserId ? 'You' : 'Someone')}</p>
+                  <p className="text-xs text-zinc-400 truncate">{replyingTo.message_type === 'image' ? 'ðŸ“· Photo' : replyingTo.content}</p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setReplyingTo(null)} className="rounded-full w-6 h-6 ml-2">
                   <X className="w-4 h-4 text-zinc-400" />
@@ -1216,7 +1709,28 @@ export function ChatWindow({
               </motion.div>
             )}
           </AnimatePresence>
-            <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-center gap-2 md:gap-3 bg-zinc-900 p-1.5 md:p-2 rounded-full border-2 border-zinc-800 shadow-2xl focus-within:border-blue-500/50 transition-colors relative">
+            <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-center gap-1 md:gap-2 bg-zinc-900 p-1.5 md:p-2 rounded-full border-2 border-zinc-800 shadow-2xl focus-within:border-blue-500/50 transition-colors relative">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingImage}
+              className="rounded-full hover:bg-zinc-800 w-9 h-9 md:w-10 md:h-10"
+            >
+              {uploadingImage ? (
+                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full" />
+              ) : (
+                <Plus className="w-5 h-5 md:w-6 md:h-6 text-zinc-400" />
+              )}
+            </Button>
             <div className="relative">
               <Button 
                 type="button" 
@@ -1244,7 +1758,7 @@ export function ChatWindow({
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Say something vibey... 💬"
+            placeholder="Say something vibey... \u{1F4AC}"
             className="flex-1 border-none bg-transparent focus-visible:ring-0 text-base md:text-lg font-medium text-white placeholder:text-zinc-600"
           />
           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
@@ -1257,8 +1771,40 @@ export function ChatWindow({
             </Button>
           </motion.div>
         </form>
-        <p className="text-center text-zinc-700 text-xs mt-2 md:mt-3 font-medium hidden md:block">Double-click messages to react ❤️ • Tap to add reactions</p>
+        <p className="text-center text-zinc-700 text-xs mt-2 md:mt-3 font-medium hidden md:block">Double-click messages to react \u2764\uFE0F \u2022 Tap to add reactions</p>
         </div>
+
+        <AnimatePresence>
+          {showReactionUsers && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowReactionUsers(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 shadow-2xl min-w-[200px] max-w-[300px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-center text-2xl mb-3">{showReactionUsers.emoji}</p>
+                <div className="flex flex-col gap-1.5">
+                  {showReactionUsers.users.map((u: any) => (
+                    <div key={u.id} className="flex items-center gap-2 px-2 py-1 rounded-lg bg-zinc-800/50">
+                      <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-xs">
+                        {u.name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                      <span className="text-sm text-white font-medium">{u.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {showUserProfile && otherUser && (

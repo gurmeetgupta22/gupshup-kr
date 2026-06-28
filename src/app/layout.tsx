@@ -4,6 +4,7 @@ import ErrorReporter from "@/components/ErrorReporter";
 import Script from "next/script";
 
 export const metadata: Metadata = {
+  charset: 'utf-8',
   title: "GupShup",
   description: "Real-time chat with voice and video calls",
 };

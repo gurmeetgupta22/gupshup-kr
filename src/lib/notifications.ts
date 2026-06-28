@@ -12,6 +12,10 @@ export function setCurrentViewingChat(chatId: string | null) {
   currentViewingChatId = chatId;
 }
 
+export function getCurrentViewingChat(): string | null {
+  return currentViewingChatId;
+}
+
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding)
@@ -188,6 +192,43 @@ export function setupNotificationListeners(userId: string, onNewMessage?: (msg: 
     subscribeToPush(userId);
   }
 
+  // Mark all existing undelivered messages in user's chats as delivered
+  const markExistingMessagesAsDelivered = async () => {
+    try {
+      const { data: participants } = await supabase
+        .from('chat_participants')
+        .select('chat_id')
+        .eq('user_id', userId);
+
+      if (participants && participants.length > 0) {
+        const chatIds = participants.map(p => p.chat_id);
+        const { data: messagesData } = await supabase
+          .from('messages')
+          .select('id, delivered_to')
+          .in('chat_id', chatIds)
+          .neq('sender_id', userId);
+
+        if (messagesData && messagesData.length > 0) {
+          const undeliveredIds = messagesData
+            .filter(msg => !msg.delivered_to?.includes(userId))
+            .map(msg => msg.id);
+
+          if (undeliveredIds.length > 0) {
+            await fetch('/api/message/update-status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'deliver', messageIds: undeliveredIds, userId })
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error marking existing messages as delivered:', err);
+    }
+  };
+
+  markExistingMessagesAsDelivered();
+
   const messageChannel = supabase
     .channel(`user_messages_notif:${userId}`)
     .on('postgres_changes', {
@@ -226,6 +267,13 @@ export function setupNotificationListeners(userId: string, onNewMessage?: (msg: 
       }
       
       onNewMessage?.(newMessage);
+
+      // Background delivery tracking: mark message as delivered to this user
+      await fetch('/api/message/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deliver', messageIds: [newMessage.id], userId })
+      }).catch(() => {});
     })
     .subscribe((status) => {
       console.log('Message channel status:', status);

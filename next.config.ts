@@ -19,7 +19,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    optimizePackageImports: ['@headlessui/react'],
+  },
 };
 
-export default nextConfig;
-// Orchids restart: 1768660324441
+export default nextConfig; // Orchids restart: 1768660324441

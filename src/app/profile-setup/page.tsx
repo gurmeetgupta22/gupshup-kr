@@ -16,6 +16,7 @@ export default function ProfileSetupPage() {
   const [displayName, setDisplayName] = useState('');
   const [avatarConfig, setAvatarConfig] = useState<EmojiAvatarConfig>(defaultEmojiAvatarConfig);
   const [loading, setLoading] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
 
@@ -26,8 +27,21 @@ export default function ProfileSetupPage() {
     });
   }, [router]);
 
+  const checkUsername = async (val: string): Promise<boolean> => {
+    if (val.length < 2) return true;
+    const { data } = await supabase.from('profiles').select('id').eq('username', val).maybeSingle();
+    if (data) {
+      setUsernameError('Username already taken 😢');
+      return false;
+    }
+    setUsernameError(null);
+    return true;
+  };
+
   const handleSaveProfile = async () => {
     if (!user) return;
+    const available = await checkUsername(username);
+    if (!available) return;
     setLoading(true);
 
     try {
@@ -113,9 +127,13 @@ export default function ProfileSetupPage() {
                   <Input
                     placeholder="@username"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e) => { setUsername(e.target.value); setUsernameError(null); }}
+                    onBlur={() => username.length >= 2 && checkUsername(username)}
                     className="h-16 text-2xl font-bold rounded-2xl border-2 border-zinc-800 bg-zinc-900/50 text-white placeholder:text-zinc-600 focus:border-blue-500 focus:ring-blue-500/20"
                   />
+                  {usernameError && (
+                    <p className="text-red-400 text-sm bg-red-500/10 p-2 rounded-xl border border-red-500/20">{usernameError}</p>
+                  )}
                 </div>
                 <Button
                   onClick={() => setStep(2)}
