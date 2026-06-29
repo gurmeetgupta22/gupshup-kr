@@ -15,10 +15,11 @@ interface ChatInputProps {
   uploadingImage: boolean;
   replyingTo: any;
   onCancelReply: () => void;
+  onEmojiSelect?: (emoji: string) => void;
 }
 
-const ChatInputInner = forwardRef<{ focus: () => void }, ChatInputProps>(function ChatInputInner(
-  { onSend, onImageUpload, uploadingImage, replyingTo, onCancelReply }, ref
+const ChatInputInner = forwardRef<{ focus: () => void; openEmojiPicker?: () => void }, ChatInputProps>(function ChatInputInner(
+  { onSend, onImageUpload, uploadingImage, replyingTo, onCancelReply, onEmojiSelect }, ref
 ) {
   const [input, setInput] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
@@ -27,7 +28,8 @@ const ChatInputInner = forwardRef<{ focus: () => void }, ChatInputProps>(functio
   const composingRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
-    focus: () => inputRef.current?.focus()
+    focus: () => inputRef.current?.focus(),
+    openEmojiPicker: () => setShowEmojis(true),
   }), []);
 
   useEffect(() => {
@@ -54,9 +56,17 @@ const ChatInputInner = forwardRef<{ focus: () => void }, ChatInputProps>(functio
   }, []);
 
   const handleEmojiSelect = useCallback((emoji: string) => {
-    setInput(prev => prev + emoji);
-    inputRef.current?.focus();
-  }, []);
+    if (onEmojiSelect) {
+      // Reaction mode: route emoji to the waiting reaction handler
+      onEmojiSelect(emoji);
+      setShowEmojis(false);
+      inputRef.current?.focus();
+    } else {
+      // Normal mode: insert emoji into text input
+      setInput(prev => prev + emoji);
+      inputRef.current?.focus();
+    }
+  }, [onEmojiSelect]);
 
   const handleCloseEmojis = useCallback(() => {
     setShowEmojis(false);

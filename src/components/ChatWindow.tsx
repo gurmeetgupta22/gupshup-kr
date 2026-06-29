@@ -473,7 +473,7 @@ const MessageItem = memo(function MessageItem({
   msg, isMe, currentUserId, groupedReactions, isEditing, editingMessage,
   editInput, editError, highlightedMsgId,
   lastSentMessage, otherParticipant, handlePointerDown, handlePointerUp,
-  handleContextMenu, setReplyingTo, handleSaveEdit, setEditingMessage, setEditError,
+  handlePointerMove, handleContextMenu, setReplyingTo, handleSaveEdit, setEditingMessage, setEditError,
   handleReaction, handleReactionClick, scrollToMessage,
   getLastMessageStatus, setShowReactionUsers
 }: {
@@ -483,6 +483,7 @@ const MessageItem = memo(function MessageItem({
   lastSentMessage: any; otherParticipant: any;
   handlePointerDown: (e: React.PointerEvent, msg: any) => void;
   handlePointerUp: () => void;
+  handlePointerMove: () => void;
   handleContextMenu: (e: React.MouseEvent, msg: any) => void;
   setReplyingTo: (msg: any) => void;
   handleSaveEdit: () => void;
@@ -506,7 +507,8 @@ const MessageItem = memo(function MessageItem({
         className={`transition-all duration-700 ${highlightedMsgId === msg.id ? 'bg-amber-200/50 rounded-2xl -mx-2 px-2' : ''} ${isMe ? 'self-end flex flex-col items-end' : 'self-start flex items-end gap-2 md:gap-3'} min-w-0`}
         onPointerDown={(e) => handlePointerDown(e, msg)}
         onPointerUp={handlePointerUp}
-        onDoubleClick={(e) => { e.preventDefault(); handleContextMenu(e as any, msg); }}
+        onPointerMove={handlePointerMove}
+        onPointerCancel={handlePointerUp}
         onContextMenu={(e) => handleContextMenu(e, msg)}
       >
         {!isMe && <EmojiAvatar config={msg.sender?.avatar_config || defaultEmojiAvatarConfig} size={32} className="mb-1 md:w-9 md:h-9 flex-shrink-0" />}
@@ -679,11 +681,14 @@ export function ChatWindow({
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [heartAnimations, setHeartAnimations] = useState<{ id: number; x: number; y: number }[]>([]);
   const [contextMsg, setContextMsg] = useState<any>(null);
+  const [reactionTrayMsg, setReactionTrayMsg] = useState<string | null>(null);
+  const [reactionTrayPos, setReactionTrayPos] = useState<{ top: number; left: number } | null>(null);
   const lastTapRef = useRef<{ msgId: string; time: number } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressActiveRef = useRef(false);
+  const pointerMovedRef = useRef(false);
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState<any>(null);
-  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
-  const [reactionPickerPos, setReactionPickerPos] = useState<{ top: number; left: number } | null>(null);
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [editInput, setEditInput] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
@@ -697,7 +702,6 @@ export function ChatWindow({
   const [chatInfo, setChatInfo] = useState<any>(null);
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState<{ top: number; left: number; above: boolean } | null>(null);
-  const [reactionRowHighlighted, setReactionRowHighlighted] = useState(false);
   const [recentReactions, setRecentReactions] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem('gupshup_recent_reactions') || '[]'); } catch { return []; }
   });
@@ -1326,11 +1330,27 @@ export function ChatWindow({
     setContextMsg(null);
   };
 
-  const chatInputRef = useRef<{ focus: () => void }>(null);
+  const chatInputRef = useRef<{ focus: () => void; openEmojiPicker?: () => void }>(null);
+  const [pendingReactionMsgId, setPendingReactionMsgId] = useState<string | null>(null);
 
   const closeContextMenu = useCallback(() => {
     setContextMsg(null);
-    setMenuPos(null);
+    setContextMenuPos(null);
+  }, []);
+
+  const closeReactionTray = useCallback(() => {
+    setReactionTrayMsg(null);
+    setReactionTrayPos(null);
+    setPendingReactionMsgId(null);
+    chatInputRef.current?.focus();
+  }, []);
+
+  const closeAll = useCallback(() => {
+    setContextMsg(null);
+    setContextMenuPos(null);
+    setReactionTrayMsg(null);
+    setReactionTrayPos(null);
+    setPendingReactionMsgId(null);
     chatInputRef.current?.focus();
   }, []);
 
@@ -1341,10 +1361,8 @@ export function ChatWindow({
       try { localStorage.setItem('gupshup_recent_reactions', JSON.stringify(updated)); } catch {}
       return updated;
     });
-    closeContextMenu();
-    setShowReactionPicker(null);
-    setReactionPickerPos(null);
-  }, [addReaction, currentUserId, closeContextMenu]);
+    closeAll();
+  }, [addReaction, currentUserId, closeAll]);
 
   const isMobile = useIsMobile();
 
@@ -1354,29 +1372,31 @@ export function ChatWindow({
 
   const calculateMenuPos = useCallback((msgEl: HTMLElement) => {
     const rect = msgEl.getBoundingClientRect();
-    const popupW = 220;
-    const popupH = 260;
-    const gap = 6;
+    const popupW = 210;
+    const popupH = 180;
+    const gap = 8;
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
 
-    if (isMobile) {
-      let left = Math.max(8, Math.min(rect.left, viewportW - popupW - 8));
-      const belowTop = rect.bottom + gap;
-      const aboveTop = rect.top - popupH - gap;
-      if (belowTop + popupH <= viewportH - 8) {
-        return { top: belowTop, left, above: false };
-      }
-      const top = aboveTop >= 8 ? aboveTop : 8;
-      return { top, left, above: top !== belowTop };
+    // Vertical: align top of menu with top of bubble, clamped so it doesn't go off-screen bottom
+    let top = Math.min(rect.top, viewportH - popupH - 8);
+    top = Math.max(8, top);
+
+    // Horizontal: prefer right of bubble, fallback to left if no room
+    const rightLeft = rect.right + gap;
+    const leftLeft = rect.left - popupW - gap;
+
+    let left: number;
+    if (rightLeft + popupW <= viewportW - 8) {
+      left = rightLeft;
+    } else if (leftLeft >= 8) {
+      left = leftLeft;
+    } else {
+      // Last resort: right-align to viewport edge
+      left = Math.max(8, viewportW - popupW - 8);
     }
 
-    const above = rect.top > popupH + gap;
-    let left = rect.left + rect.width / 2 - popupW / 2;
-    if (left < 8) left = 8;
-    if (left + popupW > viewportW - 8) left = viewportW - popupW - 8;
-    const top = above ? rect.top - popupH - gap : rect.bottom + gap;
-    return { top, left, above };
+    return { top, left, above: false };
   }, [isMobile]);
 
   const openContextMenu = useCallback((target: HTMLElement, msg: any) => {
@@ -1386,43 +1406,121 @@ export function ChatWindow({
     setContextMsg(msg);
   }, [calculateMenuPos]);
 
+  const openReactionTrayAt = useCallback((msgEl: HTMLElement, msgId: string) => {
+    const rect = msgEl.getBoundingClientRect();
+    const trayW = 300;
+    const trayH = 52;
+    let left = rect.left + rect.width / 2 - trayW / 2;
+    if (left < 8) left = 8;
+    if (left + trayW > window.innerWidth - 8) left = window.innerWidth - trayW - 8;
+    const above = rect.top > trayH + 14;
+    const top = above ? rect.top - trayH - 8 : rect.bottom + 8;
+    setReactionTrayPos({ top, left });
+    setReactionTrayMsg(msgId);
+  }, []);
+
   const handlePointerDown = useCallback((e: React.PointerEvent, msg: any) => {
+    // Only handle primary button (left click / touch)
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
     const now = Date.now();
     const lastTap = lastTapRef.current;
-    if (lastTap && lastTap.msgId === msg.id && now - lastTap.time < 300) {
-      // Double-tap detected
-      openContextMenu(e.currentTarget as HTMLElement, msg);
-      lastTapRef.current = null; // prevent triple-tap
-    } else {
-      lastTapRef.current = { msgId: msg.id, time: now };
-    }
-  }, [openContextMenu]);
 
-const handlePointerUp = useCallback(() => {}, []);
+    // Cancel any in-flight long press
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressActiveRef.current = false;
+    pointerMovedRef.current = false;
+
+    if (lastTap && lastTap.msgId === msg.id && now - lastTap.time < 350) {
+      // ── Double-tap: reaction tray ONLY ──
+      lastTapRef.current = null;
+      const target = e.currentTarget as HTMLElement;
+      const msgEl = target.closest('[data-msg-id]') as HTMLElement || target;
+      openReactionTrayAt(msgEl, msg.id);
+      return;
+    }
+
+    lastTapRef.current = { msgId: msg.id, time: now };
+
+    // ── Long press: reaction tray + context menu ──
+    const target = e.currentTarget as HTMLElement;
+    longPressTimerRef.current = setTimeout(() => {
+      if (pointerMovedRef.current) return; // cancelled by movement
+      longPressActiveRef.current = true;
+      const msgEl = target.closest('[data-msg-id]') as HTMLElement || target;
+      openReactionTrayAt(msgEl, msg.id);
+      openContextMenu(msgEl, msg);
+    }, 480);
+  }, [openReactionTrayAt, openContextMenu]);
+
+  const handlePointerUp = useCallback(() => {
+    // Cancel long press if pointer released before threshold
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handlePointerMove = useCallback(() => {
+    // Mark as moved so long press doesn't fire after dragging/scrolling
+    pointerMovedRef.current = true;
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, msg: any) => {
     e.preventDefault();
-    openContextMenu(e.currentTarget as HTMLElement, msg);
-  }, [openContextMenu]);
+    const target = e.currentTarget as HTMLElement;
+    const msgEl = target.closest('[data-msg-id]') as HTMLElement || target;
+    openContextMenu(msgEl, msg);
+    openReactionTrayAt(msgEl, msg.id);
+  }, [openContextMenu, openReactionTrayAt]);
 
   useEffect(() => {
     if (!contextMsg) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        closeContextMenu();
+        closeAll();
       }
     };
-    const handleScroll = () => closeContextMenu();
-    const handleResize = () => closeContextMenu();
+    const handleScroll = () => closeAll();
+    const handleResize = () => closeAll();
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') closeAll(); };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('scroll', handleScroll, true);
     window.addEventListener('resize', handleResize);
+    document.addEventListener('keydown', handleEsc);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('keydown', handleEsc);
     };
-  }, [contextMsg, closeContextMenu]);
+  }, [contextMsg, closeAll]);
+
+  // Dismiss reaction tray when shown alone (double-tap): outside click + escape
+  useEffect(() => {
+    if (!reactionTrayMsg || contextMsg) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const trayEl = document.querySelector('[data-reaction-tray]');
+      if (trayEl && !trayEl.contains(e.target as Node)) {
+        closeReactionTray();
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') closeReactionTray(); };
+    const timer = setTimeout(() => document.addEventListener('mousedown', handleClickOutside), 0);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [reactionTrayMsg, contextMsg, closeReactionTray]);
 
   const floatingEmojis = useMemo(() => {
     const emojis = isMobile ? FLOATING_BG_EMOJIS.slice(0, 6) : FLOATING_BG_EMOJIS;
@@ -1638,6 +1736,7 @@ const handlePointerUp = useCallback(() => {}, []);
                       otherParticipant={otherParticipant}
                       handlePointerDown={handlePointerDown}
                       handlePointerUp={handlePointerUp}
+                      handlePointerMove={handlePointerMove}
                       handleContextMenu={handleContextMenu}
                       setReplyingTo={setReplyingTo}
                       handleSaveEdit={handleSaveEdit}
@@ -1669,43 +1768,6 @@ const handlePointerUp = useCallback(() => {}, []);
               transition={{ duration: 0.15, ease: 'easeOut' }}
             >
               <div className="bg-white rounded-2xl border border-amber-200 shadow-2xl overflow-hidden" style={{ width: '200px' }}>
-                {/* Row 1: Emoji strip */}
-                <div className={`flex items-center gap-0.5 px-3 py-2.5 border-b border-amber-100 ${reactionRowHighlighted ? 'animate-pulse' : ''}`}>
-                  {[...new Set([...recentReactions, ...QUICK_REACTIONS])].slice(0, 6).map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => { handleReaction(contextMsg.id, emoji); }}
-                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 transition-colors text-lg"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const target = e.currentTarget.closest('[data-msg-id]') as HTMLElement;
-                      if (target) {
-                        const rect = target.getBoundingClientRect();
-                        const pickerW = 320;
-                        const pickerH = 360;
-                        let left = rect.left + rect.width / 2 - pickerW / 2;
-                        if (left < 8) left = 8;
-                        if (left + pickerW > window.innerWidth - 8) left = window.innerWidth - pickerW - 8;
-                        const bottomSpace = window.innerHeight - rect.bottom;
-                        const top = bottomSpace >= pickerH + 8
-                          ? rect.bottom + 4
-                          : Math.max(8, rect.top - pickerH - 4);
-                        setReactionPickerPos({ top, left });
-                      }
-                      setShowReactionPicker(contextMsg.id);
-                      closeContextMenu();
-                    }}
-                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 transition-colors text-lg text-amber-500"
-                  >
-                    +
-                  </button>
-                </div>
-                {/* Row 2: Action menu */}
                 <div className="py-1">
                   <button
                     onClick={() => { setReplyingTo(contextMsg); closeContextMenu(); }}
@@ -1715,8 +1777,9 @@ const handlePointerUp = useCallback(() => {}, []);
                   </button>
                   <button
                     onClick={() => {
-                      setReactionRowHighlighted(true);
-                      setTimeout(() => setReactionRowHighlighted(false), 1000);
+                      const msgEl = document.querySelector(`[data-msg-id="${contextMsg.id}"]`) as HTMLElement;
+                      if (msgEl) openReactionTrayAt(msgEl, contextMsg.id);
+                      closeContextMenu();
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 text-gray-800 text-sm font-medium transition-colors"
                   >
@@ -1755,6 +1818,49 @@ const handlePointerUp = useCallback(() => {}, []);
           )}
         </AnimatePresence>
 
+        <AnimatePresence>
+          {reactionTrayMsg && reactionTrayPos && (
+            <motion.div
+              data-reaction-tray
+              style={{ position: 'fixed', top: reactionTrayPos.top, left: reactionTrayPos.left, zIndex: 9999 }}
+              initial={{ opacity: 0, scale: 0.85, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.85, y: 8 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.8 }}
+            >
+              <div className="bg-white rounded-full border border-amber-200 shadow-xl px-1.5 py-1 flex items-center gap-0.5">
+                {[...new Set([...recentReactions, ...QUICK_REACTIONS])].slice(0, 6).map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => handleReaction(reactionTrayMsg, emoji)}
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-amber-100 transition-colors text-xl active:scale-110"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                <div className="w-px h-6 bg-amber-200 mx-0.5" />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Store which message we're reacting to, then trigger ChatInput's emoji picker
+                    const msgId = reactionTrayMsg;
+                    setPendingReactionMsgId(msgId);
+                    // Close tray UI but keep pendingReactionMsgId so the emoji picker
+                    // result goes to the reaction handler instead of the text input
+                    setReactionTrayMsg(null);
+                    setReactionTrayPos(null);
+                    // Programmatically click the emoji button inside ChatInput
+                    chatInputRef.current?.openEmojiPicker?.();
+                  }}
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-amber-100 transition-colors text-xl text-amber-500 active:scale-110"
+                >
+                  +
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <ChatInput
           ref={chatInputRef}
           onSend={handleSend}
@@ -1762,24 +1868,11 @@ const handlePointerUp = useCallback(() => {}, []);
           uploadingImage={uploadingImage}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          onEmojiSelect={pendingReactionMsgId ? (emoji: string) => {
+            handleReaction(pendingReactionMsgId, emoji);
+            setPendingReactionMsgId(null);
+          } : undefined}
         />
-
-        <AnimatePresence>
-          {showReactionPicker && reactionPickerPos && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              style={{ position: 'fixed', top: reactionPickerPos.top, left: reactionPickerPos.left, zIndex: 9999 }}
-            >
-              <EmojiPicker
-                position="top"
-                onSelect={(emoji) => { handleReaction(showReactionPicker, emoji); }}
-                onClose={() => { setShowReactionPicker(null); setReactionPickerPos(null); chatInputRef.current?.focus(); }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <AnimatePresence>
           {showReactionUsers && (
