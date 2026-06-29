@@ -1326,6 +1326,14 @@ export function ChatWindow({
     setContextMsg(null);
   };
 
+  const chatInputRef = useRef<{ focus: () => void }>(null);
+
+  const closeContextMenu = useCallback(() => {
+    setContextMsg(null);
+    setMenuPos(null);
+    chatInputRef.current?.focus();
+  }, []);
+
   const handleReaction = useCallback(async (messageId: string, emoji: string) => {
     await addReaction(messageId, emoji, currentUserId);
     setRecentReactions(prev => {
@@ -1337,6 +1345,8 @@ export function ChatWindow({
     setShowReactionPicker(null);
     setReactionPickerPos(null);
   }, [addReaction, currentUserId, closeContextMenu]);
+
+  const isMobile = useIsMobile();
 
   const handleReactionClick = useCallback((msg: any, emoji: string) => {
     addReaction(msg.id, emoji, currentUserId);
@@ -1376,14 +1386,6 @@ export function ChatWindow({
     setContextMsg(msg);
   }, [calculateMenuPos]);
 
-  const chatInputRef = useRef<{ focus: () => void }>(null);
-
-  const closeContextMenu = useCallback(() => {
-    setContextMsg(null);
-    setMenuPos(null);
-    chatInputRef.current?.focus();
-  }, []);
-
   const handlePointerDown = useCallback((e: React.PointerEvent, msg: any) => {
     const now = Date.now();
     const lastTap = lastTapRef.current;
@@ -1422,7 +1424,6 @@ const handlePointerUp = useCallback(() => {}, []);
     };
   }, [contextMsg, closeContextMenu]);
 
-  const isMobile = useIsMobile();
   const floatingEmojis = useMemo(() => {
     const emojis = isMobile ? FLOATING_BG_EMOJIS.slice(0, 6) : FLOATING_BG_EMOJIS;
     return emojis.map((emoji, i) => (
