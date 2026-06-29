@@ -76,21 +76,21 @@ function ProfilePanel({ onClose, avatarConfig, setAvatarConfig }: {
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
-        className="relative w-full max-w-3xl bg-gradient-to-br from-zinc-900 to-black rounded-2xl md:rounded-[2rem] border-2 border-zinc-800 p-4 md:p-8 shadow-2xl overflow-y-auto max-h-[90vh] my-auto"
+        className="relative w-full max-w-3xl bg-gradient-to-br from-white to-amber-50 rounded-2xl md:rounded-[2rem] border-2 border-amber-200 p-4 md:p-8 shadow-2xl overflow-y-auto max-h-[90vh] my-auto"
       >
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 md:top-6 md:right-6 w-8 h-8 md:w-10 md:h-10 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition-colors z-10"
+          className="absolute top-3 right-3 md:top-6 md:right-6 w-8 h-8 md:w-10 md:h-10 rounded-full bg-amber-100 hover:bg-amber-200 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors z-10"
         >
           <X className="w-4 h-4 md:w-5 md:h-5" />
         </button>
 
-        <h2 className="text-xl md:text-3xl font-black text-white mb-4 md:mb-8 flex items-center gap-2 md:gap-3 pr-10">
+        <h2 className="text-xl md:text-3xl font-black text-gray-900 mb-4 md:mb-8 flex items-center gap-2 md:gap-3 pr-10">
           <span className="text-2xl md:text-4xl">🎨</span> Customize Your Vibe
         </h2>
 
         <div className="flex flex-col md:flex-row gap-4 md:gap-8">
-          <div className="flex flex-col items-center gap-4 md:gap-6 p-4 md:p-8 bg-zinc-950 rounded-2xl md:rounded-3xl border border-zinc-800 md:min-w-[220px]">
+          <div className="flex flex-col items-center gap-4 md:gap-6 p-4 md:p-8 bg-white rounded-2xl md:rounded-3xl border border-amber-200 md:min-w-[220px]">
             <div className="relative">
               <div 
                 className="absolute inset-0 blur-[30px] md:blur-[50px] rounded-full opacity-60"
@@ -99,15 +99,15 @@ function ProfilePanel({ onClose, avatarConfig, setAvatarConfig }: {
               <Avatar config={avatarConfig} size={100} className="relative z-10 md:w-[140px] md:h-[140px]" />
             </div>
             <div className="text-center">
-              <p className="text-[10px] md:text-xs font-bold text-zinc-600 uppercase tracking-widest mb-1">Preview</p>
-              <p className="text-sm md:text-lg font-black text-white">
+              <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Preview</p>
+              <p className="text-sm md:text-lg font-black text-gray-900">
                 {AVATAR_ANIMATIONS.find(a => a.id === avatarConfig.animation)?.label}
               </p>
             </div>
           </div>
 
           <div className="flex-1 space-y-4 md:space-y-6">
-            <div className="flex gap-1 md:gap-2 p-1 bg-zinc-900 rounded-xl">
+            <div className="flex gap-1 md:gap-2 p-1 bg-amber-50 rounded-xl">
               {[
                 { id: 'emoji', label: '😎 Face' },
                 { id: 'color', label: '🎨 Color' },
@@ -118,8 +118,8 @@ function ProfilePanel({ onClose, avatarConfig, setAvatarConfig }: {
                   onClick={() => setActiveTab(tab.id as any)}
                   className={`flex-1 py-2 md:py-3 rounded-lg font-bold text-xs md:text-sm transition-all ${
                     activeTab === tab.id 
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
-                      : 'text-zinc-500 hover:text-white'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg' 
+                      : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
                   {tab.label}
@@ -144,8 +144,8 @@ function ProfilePanel({ onClose, avatarConfig, setAvatarConfig }: {
                       onClick={() => setAvatarConfig({ ...avatarConfig, emoji })}
                       className={`w-10 h-10 md:w-12 md:h-12 text-lg md:text-2xl rounded-lg md:rounded-xl flex items-center justify-center transition-all ${
                         avatarConfig.emoji === emoji 
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg scale-110' 
-                          : 'bg-zinc-800 hover:bg-zinc-700'
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg scale-110' 
+                          : 'bg-gray-100 hover:bg-gray-200'
                       }`}
                     >
                       {emoji}
@@ -170,7 +170,7 @@ function ProfilePanel({ onClose, avatarConfig, setAvatarConfig }: {
                       onClick={() => setAvatarConfig({ ...avatarConfig, bgColor: color })}
                       className={`w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl transition-all ${
                         avatarConfig.bgColor === color 
-                          ? 'ring-4 ring-white ring-offset-2 ring-offset-zinc-950 scale-110' 
+                          ? 'ring-4 ring-amber-400 ring-offset-2 ring-offset-white scale-110' 
                           : ''
                       }`}
                       style={{ backgroundColor: color, boxShadow: `0 0 15px ${color}40` }}
@@ -195,8 +195,8 @@ function ProfilePanel({ onClose, avatarConfig, setAvatarConfig }: {
                       onClick={() => setAvatarConfig({ ...avatarConfig, animation: anim.id as any })}
                       className={`p-2.5 md:p-4 rounded-lg md:rounded-xl font-bold text-left text-xs md:text-base transition-all ${
                         avatarConfig.animation === anim.id 
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
-                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg' 
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       }`}
                     >
                       {anim.label}
@@ -208,7 +208,7 @@ function ProfilePanel({ onClose, avatarConfig, setAvatarConfig }: {
           </div>
         </div>
 
-        <p className="text-center text-zinc-600 text-xs md:text-sm mt-4 md:mt-6">
+        <p className="text-center text-gray-400 text-xs md:text-sm mt-4 md:mt-6">
           Sign up to save your avatar! 💾
         </p>
       </motion.div>
@@ -245,10 +245,10 @@ export default function Home() {
 
   return (
     <div 
-      className="flex min-h-[100dvh] w-full flex-col items-center justify-center bg-black overflow-x-hidden overflow-y-auto relative cursor-crosshair"
+      className="flex min-h-[100dvh] w-full flex-col items-center justify-center bg-amber-50 overflow-x-hidden overflow-y-auto relative cursor-crosshair"
       onClick={handleClick}
     >
-      <div className="fixed inset-0 bg-gradient-to-br from-black via-zinc-950 to-blue-950/30 pointer-events-none" />
+      <div className="fixed inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-blue-50/40 pointer-events-none" />
       
       <div 
         className="fixed inset-0 opacity-[0.08] pointer-events-none"
@@ -276,27 +276,27 @@ export default function Home() {
         ))}
       </AnimatePresence>
 
-      <div className="fixed top-1/4 left-1/4 w-48 md:w-96 h-48 md:h-96 bg-blue-600/20 rounded-full blur-[100px] md:blur-[150px] animate-pulse pointer-events-none" />
-      <div className="fixed bottom-1/4 right-1/4 w-40 md:w-80 h-40 md:h-80 bg-purple-600/15 rounded-full blur-[80px] md:blur-[120px] animate-pulse pointer-events-none" />
+      <div className="fixed top-1/4 left-1/4 w-48 md:w-96 h-48 md:h-96 bg-blue-400/20 rounded-full blur-[100px] md:blur-[150px] animate-pulse pointer-events-none" />
+      <div className="fixed bottom-1/4 right-1/4 w-40 md:w-80 h-40 md:h-80 bg-amber-400/25 rounded-full blur-[80px] md:blur-[120px] animate-pulse pointer-events-none" />
 
-      <nav className="fixed top-0 left-0 right-0 w-full p-4 md:p-6 flex justify-between items-center z-40 backdrop-blur-md bg-black/40 border-b border-white/5">
+      <nav className="fixed top-0 left-0 right-0 w-full p-4 md:p-6 flex justify-between items-center z-40 backdrop-blur-md bg-white/70 border-b border-amber-200/60">
         <motion.div 
           className="flex items-center gap-2 md:gap-3"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
         >
-          <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+          <div className="w-9 h-9 md:w-12 md:h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/30">
             <MessageCircle className="text-white w-5 h-5 md:w-7 md:h-7" />
           </div>
-          <span className="text-xl md:text-3xl font-black tracking-tighter text-white">GupShup</span>
+          <span className="text-xl md:text-3xl font-black tracking-tighter text-gray-900">GupShup</span>
           <span className="text-lg md:text-2xl hidden sm:block">💬</span>
         </motion.div>
         
         <button 
-          className="md:hidden p-2 rounded-lg bg-zinc-900 border border-zinc-800"
+          className="md:hidden p-2 rounded-lg bg-white border border-amber-200"
           onClick={(e) => { e.stopPropagation(); setShowMobileMenu(!showMobileMenu); }}
         >
-          <Menu className="w-5 h-5 text-white" />
+          <Menu className="w-5 h-5 text-gray-700" />
         </button>
 
         <motion.div 
@@ -308,21 +308,21 @@ export default function Home() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={(e) => { e.stopPropagation(); setShowProfile(true); }}
-            className="flex items-center gap-3 px-4 py-2 rounded-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-colors"
+            className="flex items-center gap-3 px-4 py-2 rounded-full bg-white border border-amber-200 hover:border-amber-300 transition-colors"
           >
             <Avatar config={avatarConfig} size={32} />
-            <span className="text-sm font-bold text-zinc-400">Profile</span>
+            <span className="text-sm font-bold text-gray-600">Profile</span>
           </motion.button>
 
           <Button 
             variant="ghost" 
             onClick={(e) => { e.stopPropagation(); router.push('/login'); }}
-            className="text-zinc-400 hover:text-white hover:bg-white/10 font-bold"
+            className="text-gray-600 hover:text-gray-900 hover:bg-amber-100 font-bold"
           >
             Login
           </Button>
           <Button 
-            className="rounded-full px-8 font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-lg shadow-blue-500/30 border-0"
+            className="rounded-full px-8 font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-500/30 border-0"
             onClick={(e) => { e.stopPropagation(); router.push('/signup'); }}
           >
             Join Now 🚀
@@ -336,25 +336,25 @@ export default function Home() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-16 left-2 right-2 z-50 bg-zinc-900/95 backdrop-blur-xl rounded-2xl border border-zinc-800 p-4 flex flex-col gap-3 md:hidden"
+            className="fixed top-16 left-2 right-2 z-50 bg-white/95 backdrop-blur-xl rounded-2xl border border-amber-200 p-4 flex flex-col gap-3 md:hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => { setShowProfile(true); setShowMobileMenu(false); }}
-              className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              className="flex items-center gap-3 p-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors"
             >
               <Avatar config={avatarConfig} size={32} />
-              <span className="text-sm font-bold text-white">Customize Avatar</span>
+              <span className="text-sm font-bold text-gray-900">Customize Avatar</span>
             </button>
             <Button 
               variant="ghost" 
               onClick={() => { router.push('/login'); setShowMobileMenu(false); }}
-              className="w-full justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 font-bold"
+              className="w-full justify-center text-gray-700 hover:text-gray-900 hover:bg-gray-100 font-bold"
             >
               Login
             </Button>
             <Button 
-              className="w-full rounded-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-lg shadow-blue-500/30 border-0"
+              className="w-full rounded-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-500/30 border-0"
               onClick={() => { router.push('/signup'); setShowMobileMenu(false); }}
             >
               Join Now 🚀
@@ -364,7 +364,7 @@ export default function Home() {
       </AnimatePresence>
 
       {/* Main content */}
-      <main className="flex flex-col items-center text-center px-3 md:px-4 max-w-5xl relative z-10 pt-20 md:pt-0 pb-8">
+      <main className="flex flex-col items-center text-center px-3 md:px-4 max-w-5xl relative z-10 pt-28 md:pt-32 pb-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -401,11 +401,11 @@ export default function Home() {
           </motion.span>
 
           <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-9xl font-black tracking-tighter leading-none mb-3 md:mb-6">
-            <span className="bg-gradient-to-r from-white via-blue-200 to-white bg-clip-text text-transparent">CHATTING</span>
+            <span className="bg-gradient-to-r from-gray-900 via-blue-600 to-gray-900 bg-clip-text text-transparent">CHATTING</span>
             <br />
-            <span className="text-zinc-600">IS FINALLY</span>
+            <span className="text-gray-400">IS FINALLY</span>
             <br />
-            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">ALIVE.</span>
+            <span className="bg-gradient-to-r from-blue-500 via-amber-500 to-orange-500 bg-clip-text text-transparent">ALIVE.</span>
           </h1>
         </motion.div>
 
@@ -413,9 +413,9 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="text-base md:text-xl lg:text-2xl text-zinc-400 mb-6 md:mb-10 max-w-2xl font-medium px-2"
+          className="text-base md:text-xl lg:text-2xl text-gray-500 mb-6 md:mb-10 max-w-2xl font-medium px-2"
         >
-          Express yourself with <span className="text-blue-400">crazy avatars</span>, <span className="text-purple-400">vibe statuses</span>, and animations that actually slap 💅
+          Express yourself with <span className="text-blue-600">crazy avatars</span>, <span className="text-amber-600">vibe statuses</span>, and animations that actually slap 💅
         </motion.p>
 
         <motion.div
@@ -427,7 +427,7 @@ export default function Home() {
           <Button
             size="lg"
             onClick={(e) => { e.stopPropagation(); router.push('/signup'); }}
-            className="h-12 md:h-16 px-8 md:px-12 rounded-full text-base md:text-xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-[length:200%_100%] animate-gradient hover:scale-105 transition-transform shadow-2xl shadow-blue-500/40 border-0"
+            className="h-12 md:h-16 px-8 md:px-12 rounded-full text-base md:text-xl font-black bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 bg-[length:200%_100%] animate-gradient hover:scale-105 transition-transform shadow-2xl shadow-amber-500/40 border-0"
           >
             Get Started 🎉
           </Button>
@@ -435,7 +435,7 @@ export default function Home() {
             size="lg"
             variant="outline"
             onClick={(e) => { e.stopPropagation(); setShowProfile(true); }}
-            className="h-12 md:h-16 px-8 md:px-12 rounded-full text-base md:text-xl font-bold border-2 border-zinc-700 text-white hover:bg-white/10 hover:border-zinc-500 backdrop-blur-sm"
+            className="h-12 md:h-16 px-8 md:px-12 rounded-full text-base md:text-xl font-bold border-2 border-gray-300 text-gray-900 hover:bg-amber-50 hover:border-amber-400 backdrop-blur-sm"
           >
             Customize Avatar 🎨
           </Button>
@@ -478,7 +478,7 @@ export default function Home() {
           {[
             { icon: '😜', label: "Crazy Avatars", color: "from-yellow-500/20 to-orange-500/20" },
             { icon: '⚡', label: "Real-time Vibes", color: "from-blue-500/20 to-cyan-500/20" },
-            { icon: '💜', label: "Express Yourself", color: "from-purple-500/20 to-pink-500/20" },
+            { icon: '💛', label: "Express Yourself", color: "from-amber-500/20 to-yellow-500/20" },
             { icon: '🔥', label: "No Cap Chat", color: "from-red-500/20 to-orange-500/20" }
           ].map((item, i) => (
             <motion.div
@@ -487,10 +487,10 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.1 + i * 0.1 }}
               whileHover={{ scale: 1.05, y: -5 }}
-              className={`flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 md:py-3 rounded-full bg-gradient-to-r ${item.color} border border-zinc-800 backdrop-blur-sm cursor-pointer`}
+              className={`flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2 md:py-3 rounded-full bg-gradient-to-r ${item.color} border border-amber-200/60 backdrop-blur-sm cursor-pointer`}
             >
               <span className="text-lg md:text-2xl">{item.icon}</span>
-              <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-zinc-300">{item.label}</span>
+              <span className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-gray-700">{item.label}</span>
             </motion.div>
           ))}
         </motion.div>
@@ -499,7 +499,7 @@ export default function Home() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5 }}
-          className="mt-8 md:mt-16 text-zinc-600 text-xs md:text-sm font-bold uppercase tracking-widest"
+          className="mt-8 md:mt-16 text-gray-400 text-xs md:text-sm font-bold uppercase tracking-widest"
         >
           Click anywhere for ✨vibes✨
         </motion.p>

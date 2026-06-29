@@ -89,26 +89,26 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 50 }}
-      className="flex-1 h-full bg-black/50 backdrop-blur-xl border-l border-zinc-800 overflow-y-auto"
+      className="flex-1 h-full bg-[#FFF8EA]/95 backdrop-blur-xl border-l border-orange-200 overflow-y-auto"
     >
       <div className="max-w-2xl mx-auto p-4 md:p-8 pb-8">
         <div className="flex justify-between items-center mb-6 md:mb-10">
-          <button onClick={onClose} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors md:hidden">
+          <button onClick={onClose} className="flex items-center gap-2 text-[#8B5E3C] hover:text-[#1F2937] transition-colors md:hidden">
             <ArrowLeft className="w-5 h-5" />
             <span className="font-bold">Back</span>
           </button>
           <div className="hidden md:block">
-            <h1 className="text-xl md:text-3xl font-black tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">YOUR PROFILE ✨</h1>
-            <p className="text-zinc-500 font-medium text-sm md:text-base">Customize your vibe 🎨💫🔥</p>
+            <h1 className="text-xl md:text-3xl font-black tracking-tighter bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">YOUR PROFILE ✨</h1>
+            <p className="text-[#8B5E3C] font-medium text-sm md:text-base">Customize your vibe 🎨💫🔥</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-zinc-800 hidden md:flex">
-            <X className="w-5 h-5 md:w-6 md:h-6 text-zinc-400" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-orange-100 hidden md:flex">
+            <X className="w-5 h-5 md:w-6 md:h-6 text-[#8B5E3C]" />
           </Button>
         </div>
         
         <div className="text-center mb-6 md:hidden">
-          <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-white to-zinc-400 bg-clip-text text-transparent">YOUR PROFILE ✨</h1>
-          <p className="text-zinc-500 font-medium text-sm">Customize your vibe 🎨💫🔥</p>
+          <h1 className="text-xl font-black tracking-tighter bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">YOUR PROFILE ✨</h1>
+          <p className="text-[#8B5E3C] font-medium text-sm">Customize your vibe 🎨💫🔥</p>
         </div>
 
         <div className="flex justify-center mb-6 md:mb-10 relative">
@@ -152,8 +152,8 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
           </motion.div>
         </div>
 
-        <div className="space-y-4 md:space-y-8 bg-zinc-900/50 backdrop-blur-sm rounded-2xl md:rounded-3xl p-4 md:p-6 border border-zinc-800 mb-4 md:mb-8">
-          <h2 className="text-lg md:text-xl font-black text-white flex items-center gap-2">
+        <div className="space-y-4 md:space-y-8 bg-white/70 backdrop-blur-sm rounded-2xl md:rounded-3xl p-4 md:p-6 border border-orange-200 mb-4 md:mb-8">
+          <h2 className="text-lg md:text-xl font-black text-[#1F2937] flex items-center gap-2">
             <motion.span animate={{ rotate: [0, 15, -15, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
               <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-yellow-400" />
             </motion.span>
@@ -161,13 +161,13 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
           </h2>
 
           <div className="space-y-2 md:space-y-3">
-            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-zinc-500">Face 😜🤪👻</Label>
+            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#8B5E3C]">Face 😜🤪👻</Label>
             <div className="grid grid-cols-8 gap-1.5 md:gap-2 max-h-40 overflow-y-auto p-1">
               {EXTENDED_EMOJIS.map((emoji, i) => (
                 <motion.button 
                   key={emoji} 
                   onClick={() => handleAvatarChange({ ...avatarConfig, baseEmoji: emoji })} 
-                  className={`text-lg md:text-2xl p-1.5 md:p-2 rounded-lg md:rounded-xl transition-all ${avatarConfig.baseEmoji === emoji ? 'bg-blue-600 scale-110 shadow-lg shadow-blue-500/50' : 'bg-zinc-800 hover:bg-zinc-700'}`} 
+                  className={`text-lg md:text-2xl p-1.5 md:p-2 rounded-lg md:rounded-xl transition-all ${avatarConfig.baseEmoji === emoji ? 'bg-gradient-to-r from-orange-500 to-amber-500 scale-110 shadow-lg shadow-orange-400/40' : 'bg-orange-100 hover:bg-orange-200'}`} 
                   whileHover={{ scale: 1.15, rotate: [0, 10, -10, 0] }} 
                   whileTap={{ scale: 0.9 }}
                   initial={{ opacity: 0, y: 10 }}
@@ -181,7 +181,7 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
           </div>
 
           <div className="space-y-2 md:space-y-3">
-            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-zinc-500">Color 🎨🌈</Label>
+            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#8B5E3C]">Color 🎨🌈</Label>
             <div className="flex gap-2 md:gap-3 flex-wrap">
               {EXTENDED_COLORS.map((color, i) => (
                 <motion.button 
@@ -200,13 +200,13 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
           </div>
 
           <div className="space-y-2 md:space-y-3">
-            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-zinc-500">Energy ⚡💥</Label>
+            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#8B5E3C]">Energy ⚡💥</Label>
             <div className="grid grid-cols-5 gap-1.5 md:gap-2">
               {MOODS.map((mood, i) => (
                 <motion.button 
                   key={mood} 
                   onClick={() => handleAvatarChange({ ...avatarConfig, mood })} 
-                  className={`px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all ${avatarConfig.mood === mood ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`} 
+                  className={`px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-wider transition-all ${avatarConfig.mood === mood ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' : 'bg-orange-100 text-[#8B5E3C] hover:bg-orange-200'}`} 
                   whileHover={{ scale: 1.05, y: -2 }} 
                   whileTap={{ scale: 0.95 }}
                   initial={{ opacity: 0, x: -20 }}
@@ -220,13 +220,13 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
           </div>
 
           <div className="space-y-2 md:space-y-3">
-            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-zinc-500">Extras 💫✨</Label>
+            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#8B5E3C]">Extras 💫✨</Label>
             <div className="grid grid-cols-6 gap-1.5 md:gap-2">
               {ACCESSORIES.map((acc, i) => (
                 <motion.button 
                   key={acc} 
                   onClick={() => handleAvatarChange({ ...avatarConfig, accessory: acc })} 
-                  className={`px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl text-base md:text-lg transition-all ${avatarConfig.accessory === acc ? 'bg-gradient-to-r from-blue-600 to-purple-600' : 'bg-zinc-800 hover:bg-zinc-700'}`} 
+                  className={`px-2 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl text-base md:text-lg transition-all ${avatarConfig.accessory === acc ? 'bg-gradient-to-r from-orange-500 to-amber-500' : 'bg-orange-100 hover:bg-orange-200'}`} 
                   whileHover={{ scale: 1.1, rotate: [0, 10, -10, 0] }} 
                   whileTap={{ scale: 0.95 }}
                   initial={{ opacity: 0, scale: 0 }}
@@ -240,30 +240,30 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
           </div>
         </div>
 
-        <div className="space-y-4 md:space-y-6 bg-zinc-900/50 backdrop-blur-sm rounded-2xl md:rounded-3xl p-4 md:p-6 border border-zinc-800 mb-4 md:mb-8">
-          <h2 className="text-lg md:text-xl font-black text-white">Profile Info 📝</h2>
+        <div className="space-y-4 md:space-y-6 bg-white/70 backdrop-blur-sm rounded-2xl md:rounded-3xl p-4 md:p-6 border border-orange-200 mb-4 md:mb-8">
+          <h2 className="text-lg md:text-xl font-black text-[#1F2937]">Profile Info 📝</h2>
           <div className="space-y-2 md:space-y-3">
-            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-zinc-500">Display Name</Label>
-            <Input value={displayName} onChange={(e) => handleDisplayNameChange(e.target.value)} className="h-12 md:h-14 text-base md:text-lg font-bold rounded-xl md:rounded-2xl border-2 border-zinc-800 bg-zinc-900 text-white focus:border-blue-500" placeholder="Your name" />
+            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#8B5E3C]">Display Name</Label>
+            <Input value={displayName} onChange={(e) => handleDisplayNameChange(e.target.value)} className="h-12 md:h-14 text-base md:text-lg font-bold rounded-xl md:rounded-2xl border-2 border-orange-200 bg-white text-[#1F2937] focus:border-orange-400" placeholder="Your name" />
           </div>
           <div className="space-y-2 md:space-y-3">
-            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-zinc-500">Bio</Label>
-            <Input value={bio} onChange={(e) => handleBioChange(e.target.value)} className="h-12 md:h-14 text-base md:text-lg font-medium rounded-xl md:rounded-2xl border-2 border-zinc-800 bg-zinc-900 text-white focus:border-blue-500" placeholder="What's your vibe? ✨" />
+            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#8B5E3C]">Bio</Label>
+            <Input value={bio} onChange={(e) => handleBioChange(e.target.value)} className="h-12 md:h-14 text-base md:text-lg font-medium rounded-xl md:rounded-2xl border-2 border-orange-200 bg-white text-[#1F2937] focus:border-orange-400" placeholder="What's your vibe? ✨" />
           </div>
           <div className="space-y-2 md:space-y-3">
-            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-zinc-500">Current Vibe</Label>
+            <Label className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#8B5E3C]">Current Vibe</Label>
             <VibeSelector currentVibe={profile.vibe_status || '✨ Chilling'} onUpdate={() => {}} userId={userId} />
           </div>
         </div>
 
-        <div className="bg-zinc-900/50 backdrop-blur-sm rounded-2xl md:rounded-3xl p-4 md:p-6 border border-zinc-800 mb-4 md:mb-8">
-          <h2 className="text-lg md:text-xl font-black text-white mb-4 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-blue-400" /> Notifications 🔔
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl md:rounded-3xl p-4 md:p-6 border border-orange-200 mb-4 md:mb-8">
+          <h2 className="text-lg md:text-xl font-black text-[#1F2937] mb-4 flex items-center gap-2">
+            <Bell className="w-5 h-5 text-orange-400" /> Notifications 🔔
           </h2>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-zinc-300 font-medium">Push Notifications</p>
-              <p className="text-xs text-zinc-500">Get notified of new messages and friend requests</p>
+              <p className="text-sm text-[#1F2937] font-medium">Push Notifications</p>
+              <p className="text-xs text-[#8B5E3C]">Get notified of new messages and friend requests</p>
             </div>
             {notifPermission === 'granted' ? (
               <div className="flex items-center gap-2 text-green-400 text-sm font-bold">
@@ -274,7 +274,7 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
                 <BellOff className="w-4 h-4" /> Blocked
               </div>
             ) : (
-              <Button onClick={handleEnableNotifications} className="rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold">
+              <Button onClick={handleEnableNotifications} className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white text-sm font-bold">
                 Enable
               </Button>
             )}
@@ -286,7 +286,7 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
             <Button 
               onClick={handleSave}
               disabled={saving}
-              className="w-full h-14 rounded-2xl font-black text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 shadow-xl shadow-green-500/30 flex items-center justify-center gap-2"
+              className="w-full h-14 rounded-2xl font-black text-lg bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white shadow-xl shadow-orange-400/30 flex items-center justify-center gap-2"
             >
               {saving ? (
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}>⏳</motion.div>
@@ -301,7 +301,7 @@ function ProfilePanel({ profile, userId, onClose, onUpdateProfile }: { profile: 
               )}
             </Button>
           )}
-          <Button variant="outline" onClick={handleLogout} className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold border-2 border-red-900 text-red-400 hover:bg-red-950 hover:text-red-300">
+          <Button variant="outline" onClick={handleLogout} className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl font-bold border-2 border-red-300 text-red-500 hover:bg-red-50 hover:text-red-600">
             <LogOut className="w-4 h-4 md:w-5 md:h-5 mr-2" /> Logout
           </Button>
         </div>
@@ -360,7 +360,7 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="h-[100dvh] w-full bg-black flex items-center justify-center">
+      <div className="h-[100dvh] w-full flex items-center justify-center bg-gradient-to-br from-[#FFF9EE] via-[#FFF7E5] to-[#FFF4D9]">
         <motion.div
           animate={{ rotate: 360, scale: [1, 1.2, 1] }}
           transition={{ repeat: Infinity, duration: 1.5 }}
@@ -375,7 +375,7 @@ export default function ChatPage() {
   if (!user || !profile) return null;
 
   return (
-    <div className="h-[100dvh] w-full bg-black flex overflow-hidden">
+    <div className="h-[100dvh] w-full flex overflow-hidden bg-gradient-to-br from-[#FFF9EE] via-[#FFF7E5] to-[#FFF4D9]">
       <div className={`${mobileView === 'sidebar' ? 'flex' : 'hidden'} md:flex w-full md:w-auto`}>
         <ChatSidebar
             currentUserId={user.id}
@@ -414,20 +414,35 @@ export default function ChatPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex-1 hidden md:flex flex-col items-center justify-center bg-zinc-950"
+              className="flex-1 hidden md:flex flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#FFF9EE] via-[#FFF7E5] to-[#FFF4D9]"
             >
+              {/* Background Glow */}
+              <div className="absolute inset-0">
+                <div className="absolute left-1/4 top-1/3 h-[450px] w-[450px] rounded-full bg-orange-300/20 blur-[180px]" />
+                <div className="absolute right-1/4 bottom-1/3 h-[350px] w-[350px] rounded-full bg-yellow-300/20 blur-[160px]" />
+                <div
+                  className="absolute inset-0 opacity-[0.05]"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(rgba(255,170,0,.3) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,170,0,.3) 1px, transparent 1px)
+                    `,
+                    backgroundSize: '60px 60px',
+                  }}
+                />
+              </div>
               <motion.div
                 animate={{ 
                   y: [0, -20, 0],
                   rotate: [0, 5, -5, 0]
                 }}
                 transition={{ repeat: Infinity, duration: 3 }}
-                className="text-8xl mb-6"
+                className="relative z-10 text-8xl mb-6 drop-shadow-[0_0_30px_rgba(255,165,0,.35)]"
               >
                 💬
               </motion.div>
-              <h2 className="text-2xl font-black text-white mb-2">Select a Chat</h2>
-              <p className="text-zinc-500 font-medium">Choose a conversation to start chatting ✨</p>
+              <h2 className="relative z-10 text-3xl font-black text-[#1F2937] mb-3">Select a Chat</h2>
+              <p className="relative z-10 text-[#8B5E3C] font-medium">Choose a conversation to start chatting ✨</p>
             </motion.div>
           )}
         </AnimatePresence>

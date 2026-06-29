@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { EmojiAvatar, defaultEmojiAvatarConfig } from './EmojiAvatar';
 import { VibeSelector } from './VibeSelector';
@@ -36,6 +36,7 @@ export function ChatSidebar({
   const [friendshipStatuses, setFriendshipStatuses] = useState<Record<string, string>>({});
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; chat: any } | null>(null);
   const longPressTimer = useRef<any>(null);
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -322,7 +323,7 @@ export function ChatSidebar({
     window.addEventListener('refresh-chats', handleRefresh);
 
     return () => { sub.unsubscribe(); window.removeEventListener('refresh-chats', handleRefresh); };
-  }, [currentUserId, friends, fetchChats, selectedChatId]);
+  }, [currentUserId, fetchChats, selectedChatId]);
 
   // Click outside to close context menu
   useEffect(() => {
@@ -379,8 +380,7 @@ export function ChatSidebar({
     return () => channel.unsubscribe();
   }, [currentUserId, fetchChats]);
 
-  const handleSearch = async (val: string) => {
-    setSearch(val);
+  const doSearch = useCallback(async (val: string) => {
     if (val.length < 2) {
       setSearchResults([]);
       setFriendshipStatuses({});
@@ -423,6 +423,17 @@ export function ChatSidebar({
       }
       setFriendshipStatuses(statuses);
     }
+  }, [currentUserId]);
+
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (val.length < 2) {
+      setSearchResults([]);
+      setFriendshipStatuses({});
+      return;
+    }
+    searchTimerRef.current = setTimeout(() => doSearch(val), 300);
   };
 
   const sendFriendRequest = async (friendId: string) => {
@@ -543,32 +554,32 @@ export function ChatSidebar({
   };
 
   return (
-    <div className="w-full md:w-80 h-full flex flex-col bg-zinc-950 border-r border-zinc-800 relative z-20">
+    <div className="w-full md:w-80 h-full flex flex-col bg-amber-50 border-r border-amber-200 relative z-20">
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">GUPSHUP</h2>
+          <h2 className="text-2xl font-black tracking-tighter bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">GUPSHUP</h2>
           <span className="text-2xl">💬</span>
         </div>
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-400" />
           <Input
             placeholder="Search users..."
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            className="pl-11 h-12 rounded-2xl bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-blue-500 focus:ring-blue-500/20"
+            className="pl-11 h-12 rounded-2xl bg-amber-100 border-amber-200 text-gray-900 placeholder:text-amber-400 focus:border-amber-500 focus:ring-amber-500/20"
           />
         </div>
 
-        <div className="flex gap-2 p-1 bg-zinc-900 rounded-xl">
+        <div className="flex gap-2 p-1 bg-amber-100 rounded-xl">
           <button
             onClick={() => setActiveTab('chats')}
-            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${activeTab === 'chats' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all ${activeTab === 'chats' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg' : 'text-amber-700 hover:text-amber-900'}`}
           >
             <MessageSquare className="w-4 h-4" /> Chats
           </button>
           <button
             onClick={() => setActiveTab('friends')}
-            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${activeTab === 'friends' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${activeTab === 'friends' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg' : 'text-amber-700 hover:text-amber-900'}`}
           >
             <Users className="w-4 h-4" /> Friends
             {pendingRequests.length > 0 && (
@@ -577,7 +588,7 @@ export function ChatSidebar({
           </button>
           <button
             onClick={() => { setActiveTab('notifications'); markAllNotificationsRead(); }}
-            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${activeTab === 'notifications' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' : 'text-zinc-500 hover:text-white'}`}
+            className={`flex-1 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 transition-all relative ${activeTab === 'notifications' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg' : 'text-amber-700 hover:text-amber-900'}`}
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
@@ -597,26 +608,26 @@ export function ChatSidebar({
               exit={{ opacity: 0 }}
               className="px-4 py-2 space-y-2"
             >
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest px-2">Search Results 🔍</p>
+              <p className="text-xs font-bold text-amber-600 uppercase tracking-widest px-2">Search Results 🔍</p>
               {searchResults.map(user => {
                 const status = friendshipStatuses[user.id] || 'none';
                 return (
                   <motion.div
                     key={user.id}
-                    className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/50 border border-zinc-800"
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white border border-amber-200"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
                     <EmojiAvatar config={user.avatar_config || defaultEmojiAvatarConfig} size={44} />
                     <div className="flex-1 text-left min-w-0">
-                      <p className="font-bold text-white truncate">{user.display_name}</p>
-                      <p className="text-xs text-zinc-500 truncate">@{user.username}</p>
+                      <p className="font-bold text-gray-900 truncate">{user.display_name}</p>
+                      <p className="text-xs text-amber-600 truncate">@{user.username}</p>
                     </div>
                     {status === 'friends' ? (
                       <Button
                         size="sm"
                         onClick={() => startChatWithFriend(user.id)}
-                        className="h-8 px-3 rounded-xl bg-green-600 hover:bg-green-500 text-xs font-bold"
+                        className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-xs font-bold"
                       >
                         Message 💬
                       </Button>
@@ -628,7 +639,7 @@ export function ChatSidebar({
                       <Button
                         size="sm"
                         onClick={() => sendFriendRequest(user.id)}
-                        className="h-8 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-bold"
+                        className="h-8 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold"
                       >
                         <UserPlus className="w-4 h-4 mr-1" /> Add
                       </Button>
@@ -648,8 +659,8 @@ export function ChatSidebar({
               {chats.length === 0 ? (
                 <div className="text-center py-10">
                   <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="text-5xl mb-4">👻</motion.div>
-                  <p className="text-zinc-500 font-medium">No chats yet</p>
-                  <p className="text-zinc-600 text-sm">Add friends to start chatting!</p>
+                  <p className="text-amber-700 font-medium">No chats yet</p>
+                  <p className="text-amber-500 text-sm">Add friends to start chatting!</p>
                 </div>
               ) : (
                 chats.map(chat => {
@@ -667,17 +678,17 @@ return (
                       onTouchStart={(e) => { longPressTimer.current = setTimeout(() => showContextMenu(e, chat), 500); }}
                       onTouchEnd={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                       onTouchMove={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
-                      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${selectedChatId === chat.id ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 shadow-lg shadow-blue-500/10' : 'hover:bg-zinc-900 border border-transparent'}`}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${selectedChatId === chat.id ? 'bg-gradient-to-r from-amber-400/30 to-orange-400/30 border border-amber-400/50 shadow-lg shadow-amber-400/20' : 'hover:bg-amber-100 border border-transparent'}`}
                       whileHover={{ x: 4 }}
                       whileTap={{ scale: 0.98 }}
                     >
                         <EmojiAvatar config={otherParticipant.avatar_config || defaultEmojiAvatarConfig} size={50} />
                           <div className="flex-1 text-left min-w-0">
-                            <p className="font-black text-white truncate">{otherParticipant.display_name}</p>
+                            <p className="font-black text-gray-900 truncate">{otherParticipant.display_name}</p>
                             <div className="flex items-center justify-between gap-2 min-w-0 flex-1">
-                              <p className={`text-sm truncate max-w-full ${chat.lastMessage?.content === 'This message was deleted' ? 'text-zinc-600 italic' : 'text-zinc-500'}`}>{chat.lastMessage?.content || otherParticipant.vibe_status || '✨ Vibing'}</p>
+                              <p className={`text-sm truncate max-w-full ${chat.lastMessage?.content === 'This message was deleted' ? 'text-amber-400 italic' : 'text-amber-600'}`}>{chat.lastMessage?.content || otherParticipant.vibe_status || '✨ Vibing'}</p>
                             {chat.lastMessage?.timestamp && (
-                              <span className="text-[10px] text-zinc-600 whitespace-nowrap flex-shrink-0">
+                              <span className="text-[10px] text-amber-500 whitespace-nowrap flex-shrink-0">
                                 {formatTime(chat.lastMessage.timestamp)}
                               </span>
                             )}
@@ -687,7 +698,7 @@ return (
                             <motion.div 
                               initial={{ scale: 0 }}
                               animate={{ scale: 1 }}
-                              className="min-w-6 h-6 px-1.5 bg-blue-600 rounded-full flex items-center justify-center"
+                              className="min-w-6 h-6 px-1.5 bg-amber-500 rounded-full flex items-center justify-center"
                             >
                               <span className="text-xs font-black text-white">{chat.unreadCount > 99 ? '99+' : chat.unreadCount}</span>
                             </motion.div>
@@ -707,21 +718,21 @@ return (
             >
               {pendingRequests.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-yellow-400 uppercase tracking-widest px-2">Pending Requests 📩</p>
+                  <p className="text-xs font-bold text-amber-600 uppercase tracking-widest px-2">Pending Requests 📩</p>
                   {pendingRequests.map(req => (
                     <motion.div
                       key={req.id}
-                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-yellow-500/10 border border-yellow-500/30"
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-amber-100 border border-amber-300"
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                     >
                       <EmojiAvatar config={req.profiles?.avatar_config || defaultEmojiAvatarConfig} size={44} />
                       <div className="flex-1 text-left min-w-0">
-                        <p className="font-bold text-white truncate">{req.profiles?.display_name}</p>
-                        <p className="text-xs text-zinc-500 truncate">@{req.profiles?.username}</p>
+                        <p className="font-bold text-gray-900 truncate">{req.profiles?.display_name}</p>
+                        <p className="text-xs text-amber-600 truncate">@{req.profiles?.username}</p>
                       </div>
                       <div className="flex gap-1">
-                        <Button size="icon" onClick={() => acceptFriendRequest(req.id, req.user_id)} className="h-8 w-8 rounded-full bg-green-600 hover:bg-green-500">
+                        <Button size="icon" onClick={() => acceptFriendRequest(req.id, req.user_id)} className="h-8 w-8 rounded-full bg-amber-500 hover:bg-amber-400">
                           <Check className="w-4 h-4" />
                         </Button>
                         <Button size="icon" onClick={() => rejectFriendRequest(req.id)} className="h-8 w-8 rounded-full bg-red-600 hover:bg-red-500">
@@ -734,28 +745,28 @@ return (
               )}
 
               <div className="space-y-2">
-                <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest px-2">Your Friends 👥</p>
+                <p className="text-xs font-bold text-amber-600 uppercase tracking-widest px-2">Your Friends 👥</p>
                 {friends.length === 0 ? (
                   <div className="text-center py-6">
                     <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2 }} className="text-4xl mb-3">🔍</motion.div>
-                    <p className="text-zinc-500 font-medium text-sm">No friends yet</p>
-                    <p className="text-zinc-600 text-xs">Search for users above!</p>
+                    <p className="text-amber-700 font-medium text-sm">No friends yet</p>
+                    <p className="text-amber-500 text-xs">Search for users above!</p>
                   </div>
                 ) : (
                   friends.map(friend => (
                     <motion.button
                       key={friend.id}
                       onClick={() => startChatWithFriend(friend.id)}
-                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-zinc-900/50 hover:bg-zinc-800 transition-all border border-zinc-800"
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white hover:bg-amber-50 transition-all border border-amber-200"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <EmojiAvatar config={friend.avatar_config || defaultEmojiAvatarConfig} size={44} />
                       <div className="flex-1 text-left min-w-0">
-                        <p className="font-bold text-white truncate">{friend.display_name}</p>
-                        <p className="text-xs text-zinc-500 truncate">{friend.vibe_status || '✨ Vibing'}</p>
+                        <p className="font-bold text-gray-900 truncate">{friend.display_name}</p>
+                        <p className="text-xs text-amber-600 truncate">{friend.vibe_status || '✨ Vibing'}</p>
                       </div>
-                      <MessageSquare className="w-5 h-5 text-blue-400" />
+                      <MessageSquare className="w-5 h-5 text-amber-500" />
                     </motion.button>
                   ))
                 )}
@@ -769,18 +780,18 @@ return (
               exit={{ opacity: 0 }}
               className="px-4 py-2 space-y-2"
             >
-              <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest px-2">Notifications 🔔</p>
+              <p className="text-xs font-bold text-amber-600 uppercase tracking-widest px-2">Notifications 🔔</p>
               {notifications.length === 0 ? (
                 <div className="text-center py-10">
                   <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="text-5xl mb-4">🔕</motion.div>
-                  <p className="text-zinc-500 font-medium">No notifications</p>
-                  <p className="text-zinc-600 text-sm">You're all caught up!</p>
+                  <p className="text-amber-700 font-medium">No notifications</p>
+                  <p className="text-amber-500 text-sm">You're all caught up!</p>
                 </div>
               ) : (
                 notifications.map(notif => (
                   <motion.div
                     key={notif.id}
-                    className={`w-full p-4 rounded-2xl border transition-all ${notif.read ? 'bg-zinc-900/30 border-zinc-800' : 'bg-blue-500/10 border-blue-500/30'}`}
+                    className={`w-full p-4 rounded-2xl border transition-all ${notif.read ? 'bg-amber-50 border-amber-200' : 'bg-amber-200/50 border-amber-400'} text-gray-900`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
@@ -789,9 +800,9 @@ return (
                         {notif.type === 'friend_request' ? '👋' : notif.type === 'friend_accepted' ? '🎉' : '💬'}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-white text-sm">{notif.title}</p>
-                        <p className="text-xs text-zinc-400">{notif.body}</p>
-                        <p className="text-xs text-zinc-600 mt-1">{new Date(notif.created_at).toLocaleDateString()}</p>
+                        <p className="font-bold text-gray-900 text-sm">{notif.title}</p>
+                        <p className="text-xs text-amber-700">{notif.body}</p>
+                        <p className="text-xs text-amber-500 mt-1">{new Date(notif.created_at).toLocaleDateString()}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -802,7 +813,7 @@ return (
         </AnimatePresence>
       </ScrollArea>
 
-      <div className="p-4 border-t border-zinc-800 bg-zinc-900/50">
+      <div className="p-4 border-t border-amber-200 bg-amber-100/80">
         <div className="flex items-center gap-3">
           <motion.div 
             whileHover={{ scale: 1.1 }} 
@@ -813,7 +824,7 @@ return (
             {profile && <EmojiAvatar config={profile.avatar_config || defaultEmojiAvatarConfig} size={48} />}
           </motion.div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white truncate">{profile?.display_name}</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{profile?.display_name}</p>
             <VibeSelector
               currentVibe={profile?.vibe_status || '✨ Chilling'}
               onUpdate={(vibe) => setProfile({ ...profile, vibe_status: vibe })}
@@ -824,9 +835,9 @@ return (
             variant="ghost" 
             size="icon" 
             onClick={onShowProfile} 
-            className="rounded-full hover:bg-zinc-800"
+            className="rounded-full hover:bg-amber-200"
           >
-            <User className="w-5 h-5 text-zinc-400" />
+            <User className="w-5 h-5 text-amber-600" />
           </Button>
         </div>
       </div>
@@ -835,7 +846,7 @@ return (
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className="fixed z-[100] bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl py-1 min-w-[160px]"
+          className="fixed z-[100] bg-white border border-amber-200 rounded-xl shadow-2xl py-1 min-w-[160px]"
           style={{
             left: contextMenu.x,
             top: contextMenu.y,
@@ -844,14 +855,14 @@ return (
         >
           <button
             onClick={() => handleClearChat(contextMenu.chat.id, contextMenu.chat.participants?.find((p: any) => p.user?.id !== currentUserId)?.user?.display_name || 'them')}
-            className="w-full px-4 py-2 text-left text-white hover:bg-zinc-800 text-sm flex items-center gap-2"
+            className="w-full px-4 py-2 text-left text-gray-800 hover:bg-amber-50 text-sm flex items-center gap-2"
           >
-            <Trash2 className="w-4 h-4 text-zinc-400" /> Clear Chat
+            <Trash2 className="w-4 h-4 text-amber-500" /> Clear Chat
           </button>
-          <hr className="border-zinc-800 my-1" />
+          <hr className="border-amber-100 my-1" />
           <button
             onClick={() => handleDeleteChat(contextMenu.chat.id, contextMenu.chat.participants?.find((p: any) => p.user?.id !== currentUserId)?.user?.display_name || 'them')}
-            className="w-full px-4 py-2 text-left text-red-400 hover:bg-red-500/10 text-sm flex items-center gap-2"
+            className="w-full px-4 py-2 text-left text-red-500 hover:bg-red-50 text-sm flex items-center gap-2"
           >
             <Trash2 className="w-4 h-4" /> Delete Chat
           </button>

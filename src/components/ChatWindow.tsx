@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useChat } from '@/hooks/useChat';
 import { EmojiAvatar, defaultEmojiAvatarConfig } from './EmojiAvatar';
 import { Input } from '@/components/ui/input';
@@ -9,17 +10,19 @@ import { Send, Smile, MoreVertical, Phone, Video, Heart, ArrowLeft, Palette, X, 
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { CHAT_BACKGROUNDS } from '@/lib/constants';
-import { EmojiPicker } from './EmojiPicker';
-import { UserProfileModal } from './UserProfileModal';
+import dynamic from 'next/dynamic';
+
+const EmojiPicker = dynamic(() => import('./EmojiPicker').then(mod => mod.EmojiPicker), { ssr: false });
+const UserProfileModal = dynamic(() => import('./UserProfileModal').then(mod => mod.UserProfileModal), { ssr: false });
 import { setCurrentViewingChat } from '@/lib/notifications';
 
-const QUICK_REACTIONS = ['\u{1F44D}', '\u2764\uFE0F', '\u{1F602}', '\u{1F62E}', '\u{1F622}', '\u{1F64F}'];
-const FLOATING_BG_EMOJIS = ['\u{1F4AC}', '\u2728', '\u{1F49C}', '\u{1F499}', '\u{1F525}', '\u{1F60E}', '\u{1F480}', '\u{1F47B}', '\u26A1', '\u{1F3AE}', '\u{1F4AB}', '\u{1FAE0}'];
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+const FLOATING_BG_EMOJIS = ['💬', '✨', '💜', '💙', '🔥', '😎', '💀', '👻', '⚡', '🎮', '💫', '🫠'];
 
 type CallType = 'voice' | 'video' | null;
 type CallState = 'idle' | 'calling' | 'ringing' | 'connected' | 'denied';
 
-function SwipeableMessage({ 
+const SwipeableMessage = memo(function SwipeableMessage({ 
   children, 
   onSwipeReply,
   isMe
@@ -133,9 +136,9 @@ function SwipeableMessage({
       </div>
     </div>
   );
-}
+});
 
-function FloatingBgEmoji({ emoji, index }: { emoji: string; index: number }) {
+const FloatingBgEmoji = memo(function FloatingBgEmoji({ emoji, index }: { emoji: string; index: number }) {
   const randomX = useMemo(() => 5 + (index * 7.5) % 90, [index]);
   const randomDelay = useMemo(() => index * 0.7, [index]);
   const randomDuration = useMemo(() => 15 + (index % 5) * 3, [index]);
@@ -143,7 +146,7 @@ function FloatingBgEmoji({ emoji, index }: { emoji: string; index: number }) {
   return (
     <motion.div
       className="absolute text-3xl opacity-[0.06] pointer-events-none select-none"
-      style={{ left: `${randomX}%` }}
+      style={{ left: `${randomX}%`, willChange: 'transform' }}
       initial={{ y: '100%', opacity: 0 }}
       animate={{ 
         y: '-100%', 
@@ -162,9 +165,9 @@ function FloatingBgEmoji({ emoji, index }: { emoji: string; index: number }) {
       {emoji}
     </motion.div>
   );
-}
+});
 
-function MinimizedCall({ 
+const MinimizedCall = memo(function MinimizedCall({ 
   callType, 
   otherUser, 
   onMaximize, 
@@ -207,7 +210,7 @@ function MinimizedCall({
           />
         </div>
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-950 to-black p-3">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-950 to-black p-3">
           <EmojiAvatar config={otherUser?.avatar_config || defaultEmojiAvatarConfig} size={50} />
           <p className="text-white text-xs font-bold mt-2 truncate w-full text-center">{otherUser?.display_name}</p>
           <p className="text-green-400 text-[10px] font-bold flex items-center gap-1 mt-1">
@@ -235,9 +238,9 @@ function MinimizedCall({
       </div>
     </motion.div>
   );
-}
+});
 
-function CallOverlay({ 
+const CallOverlay = memo(function CallOverlay({ 
   callType, 
   callState, 
   otherUser, 
@@ -284,8 +287,8 @@ function CallOverlay({
       exit={{ opacity: 0 }}
       className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-950 via-black to-blue-950" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/20 rounded-full blur-[150px]" />
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-950 via-black to-blue-950" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-amber-600/20 rounded-full blur-[150px]" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-600/20 rounded-full blur-[150px]" />
       
       {callType === 'video' && callState === 'connected' && (
@@ -408,9 +411,9 @@ function CallOverlay({
       </div>
     </motion.div>
   );
-}
+});
 
-function IncomingCallOverlay({ 
+const IncomingCallOverlay = memo(function IncomingCallOverlay({ 
   otherUser, 
   callType, 
   onAnswer, 
@@ -428,7 +431,7 @@ function IncomingCallOverlay({
       exit={{ opacity: 0 }}
       className="absolute inset-0 z-[60] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center p-6"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-black to-blue-900/40" />
+      <div className="absolute inset-0 bg-gradient-to-br from-amber-900/40 via-black to-blue-900/40" />
       
       <motion.div
         animate={{ scale: [1, 1.1, 1] }}
@@ -464,7 +467,208 @@ function IncomingCallOverlay({
       </div>
     </motion.div>
   );
-}
+});
+
+const MessageItem = memo(function MessageItem({
+  msg, isMe, currentUserId, groupedReactions, isEditing, editingMessage,
+  editInput, editError, highlightedMsgId, showReactionPicker,
+  lastSentMessage, otherParticipant, handlePointerDown, handlePointerUp,
+  handleContextMenu, setReplyingTo, handleSaveEdit, setEditingMessage, setEditError,
+  handleReaction, handleReactionClick, scrollToMessage, setShowReactionPicker,
+  getLastMessageStatus, setShowReactionUsers
+}: {
+  msg: any; isMe: boolean; currentUserId: string; groupedReactions: Record<string, number>;
+  isEditing: boolean;   editingMessage: any; editInput: string; editError: string | null;
+  highlightedMsgId: string | null; showReactionPicker: string | null;
+  lastSentMessage: any; otherParticipant: any;
+  handlePointerDown: (e: React.PointerEvent, msg: any) => void;
+  handlePointerUp: () => void;
+  handleContextMenu: (e: React.MouseEvent, msg: any) => void;
+  setReplyingTo: (msg: any) => void;
+  handleSaveEdit: () => void;
+  setEditingMessage: (msg: any) => void;
+  setEditInput: (val: string) => void;
+  setEditError: (err: string | null) => void;
+  handleReaction: (messageId: string, emoji: string) => void;
+  handleReactionClick: (msg: any, emoji: string) => void;
+  scrollToMessage: (msgId: string) => void;
+  setShowReactionPicker: (id: string | null) => void;
+  getLastMessageStatus: (msg: any) => string;
+  setShowReactionUsers: (data: any) => void;
+}) {
+  const reactions = msg.reactions || [];
+  return (
+    <React.Fragment>
+      <motion.div
+        data-msg-id={msg.id}
+        initial={false}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className={`transition-all duration-700 ${highlightedMsgId === msg.id ? 'bg-amber-200/50 rounded-2xl -mx-2 px-2' : ''} ${isMe ? 'self-end flex flex-col items-end' : 'self-start flex items-end gap-2 md:gap-3'} min-w-0`}
+        onPointerDown={(e) => handlePointerDown(e, msg)}
+        onPointerUp={handlePointerUp}
+        onDoubleClick={(e) => { e.preventDefault(); handleContextMenu(e as any, msg); }}
+        onContextMenu={(e) => handleContextMenu(e, msg)}
+      >
+        {!isMe && <EmojiAvatar config={msg.sender?.avatar_config || defaultEmojiAvatarConfig} size={32} className="mb-1 md:w-9 md:h-9 flex-shrink-0" />}
+        <SwipeableMessage
+          onSwipeReply={() => setReplyingTo(msg)}
+          isMe={isMe}
+        >
+          <div
+            className={`w-fit min-w-[60px] max-w-[75%] md:max-w-[65%] group relative ${isMe ? 'ml-auto' : ''} ${Object.keys(groupedReactions).length > 0 ? 'mb-6' : ''}`}
+          >
+            <motion.div
+              className={`p-3 md:p-4 rounded-2xl md:rounded-3xl text-sm font-medium shadow-lg relative break-words ${isMe
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-br-lg'
+                : 'bg-white text-gray-900 border border-amber-200 shadow-sm rounded-bl-lg'
+              }`}
+              whileHover={{ scale: 1.01 }}
+            >
+              {msg.replyTo && !isEditing && (
+                <div
+                  className="mb-2 px-3 py-2 rounded bg-black/5 border-l-[3px] border-amber-500 text-xs"
+                  onClick={() => scrollToMessage(msg.replyTo.messageId)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <p className="font-semibold text-[12px] text-amber-600 mb-0.5">{msg.replyTo.senderName}</p>
+                  <p className="text-gray-500 text-[12px] line-clamp-2 overflow-hidden whitespace-pre-wrap">
+                    {msg.replyTo.preview.startsWith('📷') ? '📷 Photo' : msg.replyTo.preview}
+                  </p>
+                </div>
+              )}
+              {isEditing ? (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={editInput}
+                      onChange={(e) => { setEditInput(e.target.value); setEditError(null); }}
+                      className="flex-1 bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-sm text-gray-900 outline-none focus:border-amber-500"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingMessage(null); }}
+                    />
+                    <button
+                      onClick={handleSaveEdit}
+                      className="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center hover:bg-amber-400 transition-colors flex-shrink-0"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      onClick={() => { setEditingMessage(null); setEditError(null); }}
+                      className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors flex-shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {editError && (
+                    <p className="text-red-400 text-[11px] mt-1">{editError}</p>
+                  )}
+                </div>
+              ) : msg.message_type === 'image' ? (
+                <img
+                  src={msg.content}
+                  alt="Shared image"
+                  className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                  style={{ maxHeight: '300px' }}
+                  onClick={(e) => { e.stopPropagation(); window.open(msg.content, '_blank'); }}
+                  loading="lazy"
+                />
+              ) : (
+                <span style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', display: 'block', maxWidth: '100%' }}>{msg.content}</span>
+              )}
+              {msg.is_edited && !isEditing && (
+                <span className={`text-[9px] ml-2 ${isMe ? 'text-white/50' : 'text-gray-400'}`}>(edited)</span>
+              )}
+            </motion.div>
+
+            {Object.keys(groupedReactions).length > 0 && (
+              <div className={`absolute -bottom-3 ${isMe ? 'right-2' : 'left-2'} flex gap-0.5 z-10`}>
+                {Object.entries(groupedReactions).map(([emoji, count]) => {
+                  const hasReacted = reactions.some((r: any) => r.user_id === currentUserId && r.emoji === emoji);
+                  return (
+                    <button
+                      key={emoji}
+                      onClick={(e) => { e.stopPropagation(); handleReactionClick(msg, emoji); }}
+                      onPointerDown={(e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        const badgeLongPress = setTimeout(() => {
+                          const users = reactions.filter((r: any) => r.emoji === emoji);
+                          supabase
+                            .from('profiles')
+                            .select('id, display_name')
+                            .in('id', users.map((u: any) => u.user_id))
+                            .then(({ data: profiles }) => {
+                              setShowReactionUsers({
+                                emoji,
+                                users: (profiles || []).map((p: any) => ({ id: p.id, name: p.display_name }))
+                              });
+                            });
+                        }, 500);
+                        const handleUp = () => {
+                          clearTimeout(badgeLongPress);
+                          el.removeEventListener('pointerup', handleUp);
+                          el.removeEventListener('pointerleave', handleUp);
+                        };
+                        el.addEventListener('pointerup', handleUp);
+                        el.addEventListener('pointerleave', handleUp);
+                      }}
+                      className={`text-xs px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 shadow-lg transition-colors ${hasReacted ? 'bg-amber-200 border-amber-500' : 'bg-white border-amber-200 hover:bg-amber-50'}`}
+                    >
+                      {emoji}
+                      {(count as number) > 1 && <span className="text-[9px] text-amber-600">{count as number}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <AnimatePresence>
+              {showReactionPicker === msg.id && (
+                <div className={`absolute ${isMe ? 'right-0' : 'left-0'} -top-[340px] z-30`}>
+                  <EmojiPicker
+                    position="bottom"
+                    onSelect={(emoji) => { handleReaction(msg.id, emoji); setShowReactionPicker(null); }}
+                    onClose={() => setShowReactionPicker(null)}
+                  />
+                </div>
+              )}
+            </AnimatePresence>
+
+            <p className="text-[10px] mt-1 text-gray-400 flex items-center justify-end gap-1">
+              {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+            {isMe && msg.id === lastSentMessage?.id && (() => {
+              const status = getLastMessageStatus(lastSentMessage);
+              const colors = { seen: '#d97706', delivered: '#9ca3af', not_delivered: '#ef4444' };
+              const getSeenTimeLabel = (lastReadAtStr?: string) => {
+                if (!lastReadAtStr) return 'Seen';
+                const date = new Date(lastReadAtStr);
+                const now = new Date();
+                const diffMs = now.getTime() - date.getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                if (diffMins < 1) return 'Seen just now';
+                if (diffMins < 60) return `Seen ${diffMins}m ago`;
+                return `Seen ${diffHours}h ago`;
+              };
+              const labels = {
+                seen: getSeenTimeLabel(otherParticipant?.last_read_at),
+                delivered: 'Delivered',
+                not_delivered: 'Not delivered'
+              };
+              return (
+                <div className="flex items-center justify-end mt-0.5">
+                  <span style={{ fontSize: '10px', lineHeight: 1, color: colors[status] }}>
+                    {labels[status]}
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
+        </SwipeableMessage>
+      </motion.div>
+    </React.Fragment>
+  );
+});
 
 export function ChatWindow({ 
   chatId, 
@@ -531,9 +735,9 @@ export function ChatWindow({
   const channelSubscribedRef = useRef(false);
   const pendingInitialCallRef = useRef(initialCall);
 
-  const currentBg = CHAT_BACKGROUNDS.find(b => b.id === chatBackground) || CHAT_BACKGROUNDS[0];
-  const otherParticipant = chatInfo?.participants?.find((p: any) => p.user?.id !== currentUserId);
-  const otherUser = otherParticipant?.user;
+  const currentBg = useMemo(() => CHAT_BACKGROUNDS.find(b => b.id === chatBackground) || CHAT_BACKGROUNDS[0], [chatBackground]);
+  const otherParticipant = useMemo(() => chatInfo?.participants?.find((p: any) => p.user?.id !== currentUserId), [chatInfo, currentUserId]);
+  const otherUser = useMemo(() => otherParticipant?.user, [otherParticipant]);
 
   // Periodic tick to update seen status relative time
   useEffect(() => {
@@ -1215,14 +1419,22 @@ const handlePointerUp = useCallback(() => {}, []);
     };
   }, [contextMsg, closeContextMenu]);
 
+  const isMobile = useIsMobile();
+  const floatingEmojis = useMemo(() => {
+    const emojis = isMobile ? FLOATING_BG_EMOJIS.slice(0, 6) : FLOATING_BG_EMOJIS;
+    return emojis.map((emoji, i) => (
+      <FloatingBgEmoji key={i} emoji={emoji} index={i} />
+    ));
+  }, [isMobile]);
+
   if (loading || !chatInfo) return (
-    <div className="flex-1 flex items-center justify-center bg-black">
+    <div className="flex-1 flex items-center justify-center bg-amber-50">
       <motion.div
         animate={{ rotate: [0, 360] }}
         transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
         className="text-5xl"
       >
-        â³
+        ⏳
       </motion.div>
     </div>
   );
@@ -1232,19 +1444,17 @@ const handlePointerUp = useCallback(() => {}, []);
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex-1 flex flex-col h-full bg-black relative overflow-hidden"
+      className="flex-1 flex flex-col h-full bg-amber-50 relative overflow-hidden"
     >
       <video ref={localVideoRef} className="hidden" autoPlay muted playsInline />
       <video ref={remoteVideoRef} className="hidden" autoPlay playsInline />
       
       <div className={`absolute inset-0 ${currentBg.class}`} />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/5 rounded-full blur-[150px]" />
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-600/5 rounded-full blur-[150px]" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/8 rounded-full" style={{ filter: `blur(${isMobile ? 60 : 150}px)` }} />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-orange-400/8 rounded-full" style={{ filter: `blur(${isMobile ? 60 : 150}px)` }} />
       
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {FLOATING_BG_EMOJIS.map((emoji, i) => (
-          <FloatingBgEmoji key={i} emoji={emoji} index={i} />
-        ))}
+        {floatingEmojis}
       </div>
 
       <AnimatePresence>
@@ -1260,12 +1470,12 @@ const handlePointerUp = useCallback(() => {}, []);
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 max-w-md w-full mx-4"
+              className="bg-white rounded-3xl p-6 border border-amber-200 max-w-md w-full mx-4"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <Palette className="w-5 h-5 text-purple-400" /> Chat Background
+                <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-amber-500" /> Chat Background
                 </h3>
                 <Button variant="ghost" size="icon" onClick={() => setShowBgPicker(false)} className="rounded-full">
                   <X className="w-5 h-5" />
@@ -1278,7 +1488,7 @@ const handlePointerUp = useCallback(() => {}, []);
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => { onChangeBackground?.(bg.id); setShowBgPicker(false); }}
-                    className={`h-20 rounded-2xl ${bg.class} border-2 transition-all flex items-end justify-start p-3 ${chatBackground === bg.id ? 'border-blue-500 shadow-lg shadow-blue-500/30' : 'border-zinc-700'}`}
+                    className={`h-20 rounded-2xl ${bg.class} border-2 transition-all flex items-end justify-start p-3 ${chatBackground === bg.id ? 'border-amber-500 shadow-lg shadow-amber-400/30' : 'border-amber-200'}`}
                   >
                     <span className="text-xs font-bold text-white/80">{bg.name}</span>
                   </motion.button>
@@ -1343,19 +1553,19 @@ const handlePointerUp = useCallback(() => {}, []);
             exit={{ opacity: 0 }}
             transition={{ duration: 1 }}
           >
-            â¤ï¸
+            ❤️
           </motion.div>
         ))}
       </AnimatePresence>
 
-        <header className="p-3 md:p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950/80 backdrop-blur-xl z-10 relative flex-shrink-0">
+        <header className="p-3 md:p-4 border-b border-amber-200 flex justify-between items-center bg-amber-50/90 backdrop-blur-xl z-10 relative flex-shrink-0">
           <div className="flex items-center gap-3 md:gap-4">
             {onBack && (
               <Button 
                 variant="ghost" 
                 size="icon" 
                 onClick={onBack}
-                className="rounded-full hover:bg-zinc-800 text-zinc-400 md:hidden"
+                className="rounded-full hover:bg-amber-100 text-amber-600 md:hidden"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Button>
@@ -1372,15 +1582,15 @@ const handlePointerUp = useCallback(() => {}, []);
               className="cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => setShowUserProfile(true)}
             >
-              <h3 className="font-black text-base md:text-lg text-white">{nickname || otherUser?.display_name}</h3>
-              <p className="text-xs text-zinc-500 font-bold">{otherUser?.vibe_status || 'âœ¨ Vibing'}</p>
+              <h3 className="font-black text-base md:text-lg text-gray-900">{nickname || otherUser?.display_name}</h3>
+              <p className="text-xs text-ziamber-600 font-bold">{otherUser?.vibe_status || 'âœ¨ Vibing'}</p>
             </div>
           </div>
         <div className="flex items-center gap-1 md:gap-2">
-          <Button variant="ghost" size="icon" onClick={() => setShowBgPicker(true)} className="rounded-full hover:bg-zinc-800 text-zinc-400 hidden md:flex"><Palette className="w-5 h-5" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => startCall('voice')} className="rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-green-400"><Phone className="w-5 h-5" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => startCall('video')} className="rounded-full hover:bg-zinc-800 text-zinc-400 hover:text-blue-400"><Video className="w-5 h-5" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => setShowBgPicker(true)} className="rounded-full hover:bg-zinc-800 text-zinc-400 md:hidden"><Palette className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => setShowBgPicker(true)} className="rounded-full hover:bg-amber-100 text-amber-500 hidden md:flex"><Palette className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => startCall('voice')} className="rounded-full hover:bg-amber-100 text-amber-500 hover:text-green-500"><Phone className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => startCall('video')} className="rounded-full hover:bg-amber-100 text-amber-500 hover:text-amber-600"><Video className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => setShowBgPicker(true)} className="rounded-full hover:bg-amber-100 text-amber-500 md:hidden"><Palette className="w-5 h-5" /></Button>
         </div>
       </header>
 
@@ -1399,206 +1609,45 @@ const handlePointerUp = useCallback(() => {}, []);
                   return acc;
                 }, {});
                 const isEditing = editingMessage?.id === msg.id;
-                
                 return (
                   <React.Fragment key={msg.id}>
-                  {i === firstUnreadIndexRef.current && firstUnreadIndexRef.current !== -1 && (
-                    <div key="unread-divider" ref={dividerRef} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      margin: '12px 16px'
-                    }}>
-                      <div style={{ flex: 1, height: '1px', background: 'rgba(124,58,237,0.4)' }} />
-                      <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                        New Messages
-                      </span>
-                      <div style={{ flex: 1, height: '1px', background: 'rgba(124,58,237,0.4)' }} />
-                    </div>
-                  )}
-                  <motion.div
-                    key={msg.id}
-                    data-msg-id={msg.id}
-                    initial={messages.length > 20 ? false : { opacity: 0, scale: 0.8, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    transition={messages.length > 20 ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 30 }}
-                    className={`transition-all duration-700 ${highlightedMsgId === msg.id ? 'bg-blue-500/10 rounded-2xl -mx-2 px-2' : ''} ${isMe ? 'self-end flex flex-col items-end' : 'self-start flex items-end gap-2 md:gap-3'} min-w-0`}
-                    onPointerDown={(e) => handlePointerDown(e, msg)}
-                    onPointerUp={handlePointerUp}
-                    onDoubleClick={(e) => { e.preventDefault(); handleContextMenu(e as any, msg); }}
-                    onContextMenu={(e) => handleContextMenu(e, msg)}
-                  >
-                      {!isMe && <EmojiAvatar config={msg.sender?.avatar_config || defaultEmojiAvatarConfig} size={32} className="mb-1 md:w-9 md:h-9 flex-shrink-0" />}
-                      <SwipeableMessage 
-                        onSwipeReply={() => setReplyingTo(msg)}
-                        isMe={isMe}
-                      >
-                        <div 
-                          className={`w-fit min-w-[60px] max-w-[75%] md:max-w-[65%] group relative ${isMe ? 'ml-auto' : ''} ${Object.keys(groupedReactions).length > 0 ? 'mb-6' : ''}`}
-                        >
-                          <motion.div 
-                            className={`p-3 md:p-4 rounded-2xl md:rounded-3xl text-sm font-medium shadow-lg relative break-words ${isMe 
-                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-lg' 
-                              : 'bg-zinc-900 text-white border border-zinc-800 rounded-bl-lg'
-                            }`}
-                            whileHover={{ scale: 1.01 }}
-                          >
-                            {msg.replyTo && !isEditing && (
-                              <div 
-                                className="mb-2 px-3 py-2 rounded bg-white/5 border-l-[3px] border-purple-500 text-xs"
-                                onClick={() => scrollToMessage(msg.replyTo.messageId)}
-                                style={{ cursor: 'pointer' }}
-                              >
-                                <p className="font-semibold text-[12px] text-purple-500 mb-0.5">{msg.replyTo.senderName}</p>
-                                <p className="text-zinc-400 text-[12px] line-clamp-2 overflow-hidden whitespace-pre-wrap">
-                                  {msg.replyTo.preview.startsWith('ðŸ“·') ? 'ðŸ“· Photo' : msg.replyTo.preview}
-                                </p>
-                              </div>
-                            )}
-                            {isEditing ? (
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    value={editInput}
-                                    onChange={(e) => { setEditInput(e.target.value); setEditError(null); }}
-                                    className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1 text-sm text-white outline-none focus:border-blue-500"
-                                    autoFocus
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingMessage(null); }}
-                                  />
-                                  <button
-                                    onClick={handleSaveEdit}
-                                    className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-500 transition-colors flex-shrink-0"
-                                  >
-                                    âœ“
-                                  </button>
-                                  <button
-                                    onClick={() => { setEditingMessage(null); setEditError(null); }}
-                                    className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 transition-colors flex-shrink-0"
-                                  >
-                                    âœ•
-                                  </button>
-                                </div>
-                                {editError && (
-                                  <p className="text-red-400 text-[11px] mt-1">{editError}</p>
-                                )}
-                              </div>
-                            ) : msg.message_type === 'image' ? (
-                                <img
-                                  src={msg.content}
-                                  alt="Shared image"
-                                  className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-                                  style={{ maxHeight: '300px' }}
-                                  onClick={(e) => { e.stopPropagation(); window.open(msg.content, '_blank'); }}
-                                  onLoad={() => {
-                                    // Image messages load asynchronously and can grow the
-                                    // container's height after we've already scrolled down.
-                                    // Re-pin to the bottom if the user hasn't scrolled up.
-                                    if (!hasScrolledUpRef.current && messagesContainerRef.current) {
-                                      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-                                    }
-                                  }}
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <span style={{ wordBreak: 'break-word', overflowWrap: 'break-word', whiteSpace: 'pre-wrap', display: 'block', maxWidth: '100%' }}>{msg.content}</span>
-                              )}
-                              {msg.is_edited && !isEditing && (
-                                <span className="text-[9px] text-white/50 ml-2">(edited)</span>
-                              )}
-                        </motion.div>
-                          
-                          {Object.keys(groupedReactions).length > 0 && (
-                            <div className={`absolute -bottom-3 ${isMe ? 'right-2' : 'left-2'} flex gap-0.5 z-10`}>
-                              {Object.entries(groupedReactions).map(([emoji, count]) => {
-                                const hasReacted = reactions.some((r: any) => r.user_id === currentUserId && r.emoji === emoji);
-                                return (
-                                  <button
-                                    key={emoji}
-                                    onClick={(e) => { e.stopPropagation(); handleReactionClick(msg, emoji); }}
-                                    onPointerDown={(e) => {
-                                      const el = e.currentTarget as HTMLElement;
-                                      const badgeLongPress = setTimeout(() => {
-                                        const users = reactions.filter((r: any) => r.emoji === emoji);
-                                        supabase
-                                          .from('profiles')
-                                          .select('id, display_name')
-                                          .in('id', users.map((u: any) => u.user_id))
-                                          .then(({ data: profiles }) => {
-                                            setShowReactionUsers({
-                                              emoji,
-                                              users: (profiles || []).map((p: any) => ({ id: p.id, name: p.display_name }))
-                                            });
-                                          });
-                                      }, 500);
-                                      const handleUp = () => {
-                                        clearTimeout(badgeLongPress);
-                                        el.removeEventListener('pointerup', handleUp);
-                                        el.removeEventListener('pointerleave', handleUp);
-                                      };
-                                      el.addEventListener('pointerup', handleUp);
-                                      el.addEventListener('pointerleave', handleUp);
-                                    }}
-                                    className={`text-xs px-1.5 py-0.5 rounded-full border flex items-center gap-0.5 shadow-lg transition-colors ${hasReacted ? 'bg-blue-600/20 border-blue-500' : 'bg-zinc-800 border-zinc-700 hover:bg-zinc-700'}`}
-                                  >
-                                    {emoji}
-                                    {(count as number) > 1 && <span className="text-[9px] text-zinc-400">{count as number}</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        
-                        <AnimatePresence>
-                          {showReactionPicker === msg.id && (
-                            <div className={`absolute ${isMe ? 'right-0' : 'left-0'} -top-[340px] z-30`}>
-                              <EmojiPicker
-                                position="bottom"
-                                onSelect={(emoji) => { handleReaction(msg.id, emoji); setShowReactionPicker(null); }}
-                                onClose={() => setShowReactionPicker(null)}
-                              />
-                            </div>
-                          )}
-                        </AnimatePresence>
-                      
-                              <p className={`text-[10px] mt-1 text-zinc-500 flex items-center justify-end gap-1`}>
-                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                  {isMe && msg.id === lastSentMessage?.id && (() => {
-                    const status = getLastMessageStatus(lastSentMessage);
-                    const colors = { seen: '#7c3aed', delivered: '#9ca3af', not_delivered: '#ef4444' };
-                    const getSeenTimeLabel = (lastReadAtStr?: string) => {
-                      if (!lastReadAtStr) return 'Seen';
-                      const date = new Date(lastReadAtStr);
-                      const now = new Date();
-                      const diffMs = now.getTime() - date.getTime();
-                      const diffMins = Math.floor(diffMs / 60000);
-                      const diffHours = Math.floor(diffMs / 3600000);
-
-                      if (diffMins < 1) return 'Seen just now';
-                      if (diffMins < 60) return `Seen ${diffMins}m ago`;
-                      return `Seen ${diffHours}h ago`;
-                    };
-
-                    const labels = {
-                      seen: getSeenTimeLabel(otherParticipant?.last_read_at),
-                      delivered: 'Delivered',
-                      not_delivered: 'Not delivered'
-                    };
-                    return (
-                      <div className="flex items-center justify-end mt-0.5">
-                        <span style={{
-                          fontSize: '10px',
-                          lineHeight: 1,
-                          color: colors[status],
-                        }}>
-                          {labels[status]}
-                        </span>
+                    {i === firstUnreadIndexRef.current && firstUnreadIndexRef.current !== -1 && (
+                      <div key="unread-divider" ref={dividerRef} style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 16px'
+                      }}>
+                        <div style={{ flex: 1, height: '1px', background: 'rgba(245,158,11,0.5)' }} />
+                        <span style={{ fontSize: '12px', color: '#d97706', fontWeight: 500, whiteSpace: 'nowrap' }}>New Messages</span>
+                        <div style={{ flex: 1, height: '1px', background: 'rgba(245,158,11,0.5)' }} />
                       </div>
-                    );
-                  })()}
-                    </div>
-                      </SwipeableMessage>
-                  </motion.div>
+                    )}
+                    <MessageItem
+                      msg={msg}
+                      isMe={isMe}
+                      currentUserId={currentUserId}
+                      groupedReactions={groupedReactions}
+                      isEditing={isEditing}
+                      editingMessage={editingMessage}
+                      editInput={editInput}
+                      editError={editError}
+                      highlightedMsgId={highlightedMsgId}
+                      showReactionPicker={showReactionPicker}
+                      lastSentMessage={lastSentMessage}
+                      otherParticipant={otherParticipant}
+                      handlePointerDown={handlePointerDown}
+                      handlePointerUp={handlePointerUp}
+                      handleContextMenu={handleContextMenu}
+                      setReplyingTo={setReplyingTo}
+                      handleSaveEdit={handleSaveEdit}
+                      setEditingMessage={setEditingMessage}
+                      setEditInput={setEditInput}
+                      setEditError={setEditError}
+                      handleReaction={handleReaction}
+                      handleReactionClick={handleReactionClick}
+                      scrollToMessage={scrollToMessage}
+                      setShowReactionPicker={setShowReactionPicker}
+                      getLastMessageStatus={getLastMessageStatus}
+                      setShowReactionUsers={setShowReactionUsers}
+                    />
                   </React.Fragment>
                 );
               })}
@@ -1617,14 +1666,14 @@ const handlePointerUp = useCallback(() => {}, []);
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
             >
-              <div className="bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden" style={{ width: '200px' }}>
+              <div className="bg-white rounded-2xl border border-amber-200 shadow-2xl overflow-hidden" style={{ width: '200px' }}>
                 {/* Row 1: Emoji strip */}
-                <div className={`flex items-center gap-0.5 px-3 py-2.5 border-b border-zinc-800 ${reactionRowHighlighted ? 'animate-pulse' : ''}`}>
+                <div className={`flex items-center gap-0.5 px-3 py-2.5 border-b border-amber-100 ${reactionRowHighlighted ? 'animate-pulse' : ''}`}>
                   {[...new Set([...recentReactions, ...QUICK_REACTIONS])].slice(0, 6).map((emoji) => (
                     <button
                       key={emoji}
                       onClick={() => { handleReaction(contextMsg.id, emoji); }}
-                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors text-lg"
+                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 transition-colors text-lg"
                     >
                       {emoji}
                     </button>
@@ -1635,7 +1684,7 @@ const handlePointerUp = useCallback(() => {}, []);
                       setShowReactionPicker(contextMsg.id);
                       closeContextMenu();
                     }}
-                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors text-lg text-zinc-400"
+                    className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-amber-100 transition-colors text-lg text-amber-500"
                   >
                     +
                   </button>
@@ -1644,32 +1693,32 @@ const handlePointerUp = useCallback(() => {}, []);
                 <div className="py-1">
                   <button
                     onClick={() => { setReplyingTo(contextMsg); closeContextMenu(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 text-gray-800 text-sm font-medium transition-colors"
                   >
-                    <Reply className="w-4 h-4 text-blue-400" /> Reply
+                    <Reply className="w-4 h-4 text-amber-500" /> Reply
                   </button>
                   <button
                     onClick={() => {
                       setReactionRowHighlighted(true);
                       setTimeout(() => setReactionRowHighlighted(false), 1000);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 text-gray-800 text-sm font-medium transition-colors"
                   >
                     <Smile className="w-4 h-4 text-yellow-400" /> React
                   </button>
                   {contextMsg.sender_id === currentUserId && (Date.now() - new Date(contextMsg.created_at).getTime()) < 15 * 60 * 1000 && (
                     <button
                       onClick={() => { handleEdit(contextMsg); closeContextMenu(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 text-gray-800 text-sm font-medium transition-colors"
                     >
                       <Pencil className="w-4 h-4 text-green-400" /> Edit
                     </button>
                   )}
                   <button
                     onClick={() => { handleDeleteForMe(contextMsg.id); closeContextMenu(); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 text-white text-sm font-medium transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-amber-50 text-gray-800 text-sm font-medium transition-colors"
                   >
-                    <X className="w-4 h-4 text-zinc-400" /> Delete for me
+                    <X className="w-4 h-4 text-gray-400" /> Delete for me
                   </button>
                   {contextMsg.sender_id === currentUserId && (
                     <button
@@ -1679,7 +1728,7 @@ const handlePointerUp = useCallback(() => {}, []);
                         }
                         closeContextMenu();
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-500/10 text-red-400 text-sm font-medium transition-colors"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-red-500 text-sm font-medium transition-colors"
                     >
                       <Trash2 className="w-4 h-4 text-red-400" /> Delete for everyone
                     </button>
@@ -1690,18 +1739,18 @@ const handlePointerUp = useCallback(() => {}, []);
           )}
         </AnimatePresence>
 
-        <div className="p-3 md:p-6 relative z-10 flex-shrink-0 bg-gradient-to-t from-black/50 to-transparent pt-6">
+        <div className="p-3 md:p-6 relative z-10 flex-shrink-0 bg-gradient-to-t from-amber-100/80 to-transparent pt-6">
           <AnimatePresence>
             {replyingTo && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="max-w-4xl mx-auto mb-2 px-4 py-2 bg-zinc-900 rounded-xl border-l-2 border-blue-500 flex justify-between items-center"
+                className="max-w-4xl mx-auto mb-2 px-4 py-2 bg-amber-100 rounded-xl border-l-2 border-amber-500 flex justify-between items-center"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-blue-400 font-bold uppercase">Replying to {replyingTo.sender?.display_name || (replyingTo.sender_id === currentUserId ? 'You' : 'Someone')}</p>
-                  <p className="text-xs text-zinc-400 truncate">{replyingTo.message_type === 'image' ? 'ðŸ“· Photo' : replyingTo.content}</p>
+                  <p className="text-[10px] text-amber-600 font-bold uppercase">Replying to {replyingTo.sender?.display_name || (replyingTo.sender_id === currentUserId ? 'You' : 'Someone')}</p>
+                  <p className="text-xs text-amber-700 truncate">{replyingTo.message_type === 'image' ? 'ðŸ“· Photo' : replyingTo.content}</p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setReplyingTo(null)} className="rounded-full w-6 h-6 ml-2">
                   <X className="w-4 h-4 text-zinc-400" />
@@ -1709,7 +1758,7 @@ const handlePointerUp = useCallback(() => {}, []);
               </motion.div>
             )}
           </AnimatePresence>
-            <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-center gap-1 md:gap-2 bg-zinc-900 p-1.5 md:p-2 rounded-full border-2 border-zinc-800 shadow-2xl focus-within:border-blue-500/50 transition-colors relative">
+            <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-center gap-1 md:gap-2 bg-white p-1.5 md:p-2 rounded-full border-2 border-amber-200 shadow-lg focus-within:border-amber-400/70 transition-colors relative">
             <input
               ref={fileInputRef}
               type="file"
@@ -1723,12 +1772,12 @@ const handlePointerUp = useCallback(() => {}, []);
               size="icon"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImage}
-              className="rounded-full hover:bg-zinc-800 w-9 h-9 md:w-10 md:h-10"
+              className="rounded-full hover:bg-amber-100 w-9 h-9 md:w-10 md:h-10"
             >
               {uploadingImage ? (
                 <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full" />
               ) : (
-                <Plus className="w-5 h-5 md:w-6 md:h-6 text-zinc-400" />
+                <Plus className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
               )}
             </Button>
             <div className="relative">
@@ -1737,9 +1786,9 @@ const handlePointerUp = useCallback(() => {}, []);
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setShowEmojis(!showEmojis)} 
-                className="rounded-full hover:bg-zinc-800 w-9 h-9 md:w-10 md:h-10"
+                className="rounded-full hover:bg-amber-100 w-9 h-9 md:w-10 md:h-10"
               >
-                <Smile className="w-5 h-5 md:w-6 md:h-6 text-zinc-400" />
+                <Smile className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
               </Button>
               <AnimatePresence>
                 {showEmojis && (
@@ -1758,20 +1807,20 @@ const handlePointerUp = useCallback(() => {}, []);
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Say something vibey... \u{1F4AC}"
-            className="flex-1 border-none bg-transparent focus-visible:ring-0 text-base md:text-lg font-medium text-white placeholder:text-zinc-600"
+            placeholder="Say something vibey... 💬"
+            className="flex-1 border-none bg-transparent focus-visible:ring-0 text-base md:text-lg font-medium text-gray-900 placeholder:text-amber-300"
           />
           <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
             <Button 
               type="submit" 
               size="icon" 
-              className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 border-0 shadow-lg shadow-blue-500/30"
+              className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 border-0 shadow-lg shadow-amber-500/30"
             >
               <Send className="w-4 h-4 md:w-5 md:h-5 text-white" />
             </Button>
           </motion.div>
         </form>
-        <p className="text-center text-zinc-700 text-xs mt-2 md:mt-3 font-medium hidden md:block">Double-click messages to react \u2764\uFE0F \u2022 Tap to add reactions</p>
+        <p className="text-center text-amber-400 text-xs mt-2 md:mt-3 font-medium hidden md:block">Double-click messages to react ❤️ • Tap to add reactions</p>
         </div>
 
         <AnimatePresence>
@@ -1787,17 +1836,17 @@ const handlePointerUp = useCallback(() => {}, []);
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
-                className="bg-zinc-900 rounded-2xl p-4 border border-zinc-800 shadow-2xl min-w-[200px] max-w-[300px]"
+                className="bg-white rounded-2xl p-4 border border-amber-200 shadow-2xl min-w-[200px] max-w-[300px]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <p className="text-center text-2xl mb-3">{showReactionUsers.emoji}</p>
                 <div className="flex flex-col gap-1.5">
                   {showReactionUsers.users.map((u: any) => (
-                    <div key={u.id} className="flex items-center gap-2 px-2 py-1 rounded-lg bg-zinc-800/50">
-                      <div className="w-6 h-6 rounded-full bg-zinc-700 flex items-center justify-center text-xs">
+                    <div key={u.id} className="flex items-center gap-2 px-2 py-1 rounded-lg bg-amber-50">
+                      <div className="w-6 h-6 rounded-full bg-amber-200 flex items-center justify-center text-xs">
                         {u.name?.charAt(0)?.toUpperCase() || '?'}
                       </div>
-                      <span className="text-sm text-white font-medium">{u.name}</span>
+                      <span className="text-sm text-gray-900 font-medium">{u.name}</span>
                     </div>
                   ))}
                 </div>

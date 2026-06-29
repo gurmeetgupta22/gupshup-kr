@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useMemo } from 'react';
 
 export interface EmojiAvatarConfig {
   baseEmoji: string;
@@ -59,13 +61,24 @@ export function EmojiAvatar({
   className?: string,
   onClick?: () => void 
 }) {
-  const moodAnimation = MOOD_ANIMATIONS[config.mood];
+  const isMobile = useIsMobile();
+  const moodAnimation = useMemo(() => {
+    if (!isMobile) return MOOD_ANIMATIONS[config.mood];
+    const base = MOOD_ANIMATIONS[config.mood];
+    return {
+      ...base,
+      transition: {
+        ...base.transition,
+        duration: (base.transition?.duration || 2) * 2.5,
+      }
+    };
+  }, [config.mood, isMobile]);
   const accessory = ACCESSORY_ELEMENTS[config.accessory];
 
   return (
     <motion.div 
       className={`relative flex items-center justify-center cursor-pointer ${className}`} 
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, willChange: 'transform' }}
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
@@ -81,7 +94,8 @@ export function EmojiAvatar({
         className="absolute inset-0 rounded-full shadow-2xl"
         style={{ 
           background: `linear-gradient(135deg, ${config.bgColor}, ${config.bgColor}88)`,
-          boxShadow: `0 0 30px ${config.bgColor}66`
+          boxShadow: `0 0 30px ${config.bgColor}66`,
+          willChange: 'transform'
         }}
         {...moodAnimation}
       />
