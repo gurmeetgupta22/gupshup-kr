@@ -712,6 +712,10 @@ export function ChatWindow({
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const firstUnreadIndexRef = useRef<number>(-1);
   const dividerRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  const replyingToRef = useRef(replyingTo);
+  useEffect(() => { replyingToRef.current = replyingTo; }, [replyingTo]);
 
   const [callType, setCallType] = useState<CallType>(null);
   const [callState, setCallState] = useState<CallState>('idle');
@@ -1228,10 +1232,11 @@ export function ChatWindow({
   }, []);
 
   const handleSend = useCallback(async (content: string) => {
-    const replyId = replyingTo?.id;
+    const currentReplyingTo = replyingToRef.current;
+    const replyId = currentReplyingTo?.id;
     let replyTo = null;
     if (replyId) {
-      const replyMsg = messages.find(m => m.id === replyId);
+      const replyMsg = messagesRef.current.find((m: any) => m.id === replyId);
       if (replyMsg) {
         let senderName = replyMsg.sender?.display_name || null;
         if (!senderName) {
@@ -1248,9 +1253,9 @@ export function ChatWindow({
     }
     setReplyingTo(null);
     await sendMessage(content, currentUserId, 'text', replyId, replyTo);
-  }, [replyingTo, messages, currentUserId, sendMessage]);
+  }, [currentUserId, sendMessage]);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !chatId) return;
 
@@ -1275,10 +1280,11 @@ export function ChatWindow({
         .from('chat-images')
         .getPublicUrl(fileName);
 
-      const replyId = replyingTo?.id;
+      const currentReplyingTo = replyingToRef.current;
+      const replyId = currentReplyingTo?.id;
       let replyTo = null;
       if (replyId) {
-        const replyMsg = messages.find(m => m.id === replyId);
+        const replyMsg = messagesRef.current.find((m: any) => m.id === replyId);
         if (replyMsg) {
           let senderName = replyMsg.sender?.display_name || null;
           if (!senderName) {
@@ -1289,7 +1295,7 @@ export function ChatWindow({
             messageId: replyMsg.id,
             senderId: replyMsg.sender_id,
             senderName,
-            preview: replyMsg.message_type === 'image' ? 'ðŸ“· Photo' : replyMsg.content.substring(0, 80)
+            preview: replyMsg.message_type === 'image' ? '📷 Photo' : replyMsg.content.substring(0, 80)
           };
         }
       }
@@ -1301,7 +1307,7 @@ export function ChatWindow({
       setUploadingImage(false);
       if (e.target) e.target.value = '';
     }
-  };
+  }, [chatId, currentUserId, sendMessage]);
 
   const handleEdit = (msg: any) => {
     setEditingMessage(msg);
@@ -1334,6 +1340,8 @@ export function ChatWindow({
   const chatInputRef = useRef<{ focus: () => void; openEmojiPicker?: () => void }>(null);
   const [pendingReactionMsgId, setPendingReactionMsgId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+
+  const handleCancelReply = useCallback(() => setReplyingTo(null), []);
 
   const closeContextMenu = useCallback(() => {
     setContextMsg(null);
@@ -1881,7 +1889,7 @@ export function ChatWindow({
           onImageUpload={handleImageUpload}
           uploadingImage={uploadingImage}
           replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
+          onCancelReply={handleCancelReply}
           onEmojiSelect={pendingReactionMsgId ? (emoji: string) => {
             handleReaction(pendingReactionMsgId, emoji);
             setPendingReactionMsgId(null);

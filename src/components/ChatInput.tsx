@@ -150,8 +150,8 @@ const ChatInputInner = forwardRef<{ focus: () => void; openEmojiPicker?: () => v
           onKeyDown={handleKeyDown}
           placeholder="Say something vibey... 💬"
           className="flex-1 border-none bg-transparent focus-visible:ring-0 text-base md:text-lg font-medium text-gray-900 placeholder:text-amber-300 outline-none"
-          autoComplete="off"
-          autoCorrect="off"
+          autoComplete="chrome-off"
+          autoCorrect="on"
           autoCapitalize="sentences"
           spellCheck="true"
           inputMode="text"
