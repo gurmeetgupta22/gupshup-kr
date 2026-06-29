@@ -4,13 +4,13 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallba
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useChat } from '@/hooks/useChat';
 import { EmojiAvatar, defaultEmojiAvatarConfig } from './EmojiAvatar';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Smile, MoreVertical, Phone, Video, Heart, ArrowLeft, Palette, X, PhoneOff, VideoOff, Mic, MicOff, Maximize2, Minimize2, Plus, Reply, Pencil, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { Phone, Video, ArrowLeft, Palette, X, PhoneOff, VideoOff, Mic, MicOff, Maximize2, Minimize2, Plus, Reply, Pencil, Trash2, Smile } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { CHAT_BACKGROUNDS } from '@/lib/constants';
 import dynamic from 'next/dynamic';
+import { ChatInput } from './ChatInput';
 
 const EmojiPicker = dynamic(() => import('./EmojiPicker').then(mod => mod.EmojiPicker), { ssr: false });
 const UserProfileModal = dynamic(() => import('./UserProfileModal').then(mod => mod.UserProfileModal), { ssr: false });
@@ -471,15 +471,15 @@ const IncomingCallOverlay = memo(function IncomingCallOverlay({
 
 const MessageItem = memo(function MessageItem({
   msg, isMe, currentUserId, groupedReactions, isEditing, editingMessage,
-  editInput, editError, highlightedMsgId, showReactionPicker,
+  editInput, editError, highlightedMsgId,
   lastSentMessage, otherParticipant, handlePointerDown, handlePointerUp,
   handleContextMenu, setReplyingTo, handleSaveEdit, setEditingMessage, setEditError,
-  handleReaction, handleReactionClick, scrollToMessage, setShowReactionPicker,
+  handleReaction, handleReactionClick, scrollToMessage,
   getLastMessageStatus, setShowReactionUsers
 }: {
   msg: any; isMe: boolean; currentUserId: string; groupedReactions: Record<string, number>;
-  isEditing: boolean;   editingMessage: any; editInput: string; editError: string | null;
-  highlightedMsgId: string | null; showReactionPicker: string | null;
+  isEditing: boolean; editingMessage: any; editInput: string; editError: string | null;
+  highlightedMsgId: string | null;
   lastSentMessage: any; otherParticipant: any;
   handlePointerDown: (e: React.PointerEvent, msg: any) => void;
   handlePointerUp: () => void;
@@ -492,11 +492,11 @@ const MessageItem = memo(function MessageItem({
   handleReaction: (messageId: string, emoji: string) => void;
   handleReactionClick: (msg: any, emoji: string) => void;
   scrollToMessage: (msgId: string) => void;
-  setShowReactionPicker: (id: string | null) => void;
   getLastMessageStatus: (msg: any) => string;
   setShowReactionUsers: (data: any) => void;
 }) {
   const reactions = msg.reactions || [];
+  const editComposingRef = useRef(false);
   return (
     <React.Fragment>
       <motion.div
@@ -538,13 +538,15 @@ const MessageItem = memo(function MessageItem({
               )}
               {isEditing ? (
                 <div>
-                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                     <input
                       value={editInput}
                       onChange={(e) => { setEditInput(e.target.value); setEditError(null); }}
                       className="flex-1 bg-amber-50 border border-amber-300 rounded-lg px-2 py-1 text-sm text-gray-900 outline-none focus:border-amber-500"
                       autoFocus
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingMessage(null); }}
+                      onCompositionStart={() => { editComposingRef.current = true; }}
+                      onCompositionEnd={() => { editComposingRef.current = false; }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !editComposingRef.current) handleSaveEdit(); if (e.key === 'Escape') setEditingMessage(null); }}
                     />
                     <button
                       onClick={handleSaveEdit}
@@ -621,18 +623,6 @@ const MessageItem = memo(function MessageItem({
               </div>
             )}
 
-            <AnimatePresence>
-              {showReactionPicker === msg.id && (
-                <div className={`absolute ${isMe ? 'right-0' : 'left-0'} -top-[340px] z-30`}>
-                  <EmojiPicker
-                    position="bottom"
-                    onSelect={(emoji) => { handleReaction(msg.id, emoji); setShowReactionPicker(null); }}
-                    onClose={() => setShowReactionPicker(null)}
-                  />
-                </div>
-              )}
-            </AnimatePresence>
-
             <p className="text-[10px] mt-1 text-gray-400 flex items-center justify-end gap-1">
               {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
@@ -686,8 +676,6 @@ export function ChatWindow({
   initialCall?: { type: CallType; offer: any; from: string } | null;
 }) {
   const { messages, sendMessage, loading, addReaction, editMessage, deleteMessage, deleteForMe } = useChat(chatId);
-  const [input, setInput] = useState('');
-  const [showEmojis, setShowEmojis] = useState(false);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [heartAnimations, setHeartAnimations] = useState<{ id: number; x: number; y: number }[]>([]);
   const [contextMsg, setContextMsg] = useState<any>(null);
@@ -695,11 +683,11 @@ export function ChatWindow({
   const [showUserProfile, setShowUserProfile] = useState(false);
   const [replyingTo, setReplyingTo] = useState<any>(null);
   const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [reactionPickerPos, setReactionPickerPos] = useState<{ top: number; left: number } | null>(null);
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [editInput, setEditInput] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1234,11 +1222,7 @@ export function ChatWindow({
     };
   }, []);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    const content = input;
-    setInput('');
+  const handleSend = useCallback(async (content: string) => {
     const replyId = replyingTo?.id;
     let replyTo = null;
     if (replyId) {
@@ -1253,13 +1237,13 @@ export function ChatWindow({
           messageId: replyMsg.id,
           senderId: replyMsg.sender_id,
           senderName,
-          preview: replyMsg.message_type === 'image' ? 'ðŸ“· Photo' : replyMsg.content.substring(0, 80)
+          preview: replyMsg.message_type === 'image' ? '📷 Photo' : replyMsg.content.substring(0, 80)
         };
       }
     }
     setReplyingTo(null);
     await sendMessage(content, currentUserId, 'text', replyId, replyTo);
-  };
+  }, [replyingTo, messages, currentUserId, sendMessage]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1342,7 +1326,7 @@ export function ChatWindow({
     setContextMsg(null);
   };
 
-  const handleReaction = async (messageId: string, emoji: string) => {
+  const handleReaction = useCallback(async (messageId: string, emoji: string) => {
     await addReaction(messageId, emoji, currentUserId);
     setRecentReactions(prev => {
       const updated = [emoji, ...prev.filter((e: string) => e !== emoji)].slice(0, 6);
@@ -1350,24 +1334,40 @@ export function ChatWindow({
       return updated;
     });
     closeContextMenu();
-  };
+    setShowReactionPicker(null);
+    setReactionPickerPos(null);
+  }, [addReaction, currentUserId, closeContextMenu]);
 
-  const handleReactionClick = (msg: any, emoji: string) => {
+  const handleReactionClick = useCallback((msg: any, emoji: string) => {
     addReaction(msg.id, emoji, currentUserId);
-  };
+  }, [addReaction, currentUserId]);
 
   const calculateMenuPos = useCallback((msgEl: HTMLElement) => {
     const rect = msgEl.getBoundingClientRect();
     const popupW = 220;
     const popupH = 260;
     const gap = 6;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+
+    if (isMobile) {
+      let left = Math.max(8, Math.min(rect.left, viewportW - popupW - 8));
+      const belowTop = rect.bottom + gap;
+      const aboveTop = rect.top - popupH - gap;
+      if (belowTop + popupH <= viewportH - 8) {
+        return { top: belowTop, left, above: false };
+      }
+      const top = aboveTop >= 8 ? aboveTop : 8;
+      return { top, left, above: top !== belowTop };
+    }
+
     const above = rect.top > popupH + gap;
     let left = rect.left + rect.width / 2 - popupW / 2;
     if (left < 8) left = 8;
-    if (left + popupW > window.innerWidth - 8) left = window.innerWidth - popupW - 8;
+    if (left + popupW > viewportW - 8) left = viewportW - popupW - 8;
     const top = above ? rect.top - popupH - gap : rect.bottom + gap;
     return { top, left, above };
-  }, []);
+  }, [isMobile]);
 
   const openContextMenu = useCallback((target: HTMLElement, msg: any) => {
     const msgEl = target.closest('[data-msg-id]') as HTMLElement || target;
@@ -1376,9 +1376,12 @@ export function ChatWindow({
     setContextMsg(msg);
   }, [calculateMenuPos]);
 
+  const chatInputRef = useRef<{ focus: () => void }>(null);
+
   const closeContextMenu = useCallback(() => {
     setContextMsg(null);
-    setContextMenuPos(null);
+    setMenuPos(null);
+    chatInputRef.current?.focus();
   }, []);
 
   const handlePointerDown = useCallback((e: React.PointerEvent, msg: any) => {
@@ -1630,7 +1633,6 @@ const handlePointerUp = useCallback(() => {}, []);
                       editInput={editInput}
                       editError={editError}
                       highlightedMsgId={highlightedMsgId}
-                      showReactionPicker={showReactionPicker}
                       lastSentMessage={lastSentMessage}
                       otherParticipant={otherParticipant}
                       handlePointerDown={handlePointerDown}
@@ -1644,7 +1646,6 @@ const handlePointerUp = useCallback(() => {}, []);
                       handleReaction={handleReaction}
                       handleReactionClick={handleReactionClick}
                       scrollToMessage={scrollToMessage}
-                      setShowReactionPicker={setShowReactionPicker}
                       getLastMessageStatus={getLastMessageStatus}
                       setShowReactionUsers={setShowReactionUsers}
                     />
@@ -1681,6 +1682,20 @@ const handlePointerUp = useCallback(() => {}, []);
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      const target = e.currentTarget.closest('[data-msg-id]') as HTMLElement;
+                      if (target) {
+                        const rect = target.getBoundingClientRect();
+                        const pickerW = 320;
+                        const pickerH = 360;
+                        let left = rect.left + rect.width / 2 - pickerW / 2;
+                        if (left < 8) left = 8;
+                        if (left + pickerW > window.innerWidth - 8) left = window.innerWidth - pickerW - 8;
+                        const bottomSpace = window.innerHeight - rect.bottom;
+                        const top = bottomSpace >= pickerH + 8
+                          ? rect.bottom + 4
+                          : Math.max(8, rect.top - pickerH - 4);
+                        setReactionPickerPos({ top, left });
+                      }
                       setShowReactionPicker(contextMsg.id);
                       closeContextMenu();
                     }}
@@ -1739,89 +1754,31 @@ const handlePointerUp = useCallback(() => {}, []);
           )}
         </AnimatePresence>
 
-        <div className="p-3 md:p-6 relative z-10 flex-shrink-0 bg-gradient-to-t from-amber-100/80 to-transparent pt-6">
-          <AnimatePresence>
-            {replyingTo && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="max-w-4xl mx-auto mb-2 px-4 py-2 bg-amber-100 rounded-xl border-l-2 border-amber-500 flex justify-between items-center"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-amber-600 font-bold uppercase">Replying to {replyingTo.sender?.display_name || (replyingTo.sender_id === currentUserId ? 'You' : 'Someone')}</p>
-                  <p className="text-xs text-amber-700 truncate">{replyingTo.message_type === 'image' ? 'ðŸ“· Photo' : replyingTo.content}</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setReplyingTo(null)} className="rounded-full w-6 h-6 ml-2">
-                  <X className="w-4 h-4 text-zinc-400" />
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-            <form onSubmit={handleSend} className="max-w-4xl mx-auto flex items-center gap-1 md:gap-2 bg-white p-1.5 md:p-2 rounded-full border-2 border-amber-200 shadow-lg focus-within:border-amber-400/70 transition-colors relative">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadingImage}
-              className="rounded-full hover:bg-amber-100 w-9 h-9 md:w-10 md:h-10"
+        <ChatInput
+          ref={chatInputRef}
+          onSend={handleSend}
+          onImageUpload={handleImageUpload}
+          uploadingImage={uploadingImage}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+        />
+
+        <AnimatePresence>
+          {showReactionPicker && reactionPickerPos && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              style={{ position: 'fixed', top: reactionPickerPos.top, left: reactionPickerPos.left, zIndex: 9999 }}
             >
-              {uploadingImage ? (
-                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }} className="w-4 h-4 border-2 border-zinc-400 border-t-transparent rounded-full" />
-              ) : (
-                <Plus className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
-              )}
-            </Button>
-            <div className="relative">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setShowEmojis(!showEmojis)} 
-                className="rounded-full hover:bg-amber-100 w-9 h-9 md:w-10 md:h-10"
-              >
-                <Smile className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
-              </Button>
-              <AnimatePresence>
-                {showEmojis && (
-                  <div className="absolute bottom-12 left-0 z-50">
-                    <EmojiPicker
-                      position="top"
-                      onSelect={(emoji) => {
-                        setInput(prev => prev + emoji);
-                      }}
-                      onClose={() => setShowEmojis(false)}
-                    />
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Say something vibey... 💬"
-            className="flex-1 border-none bg-transparent focus-visible:ring-0 text-base md:text-lg font-medium text-gray-900 placeholder:text-amber-300"
-          />
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Button 
-              type="submit" 
-              size="icon" 
-              className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 border-0 shadow-lg shadow-amber-500/30"
-            >
-              <Send className="w-4 h-4 md:w-5 md:h-5 text-white" />
-            </Button>
-          </motion.div>
-        </form>
-        <p className="text-center text-amber-400 text-xs mt-2 md:mt-3 font-medium hidden md:block">Double-click messages to react ❤️ • Tap to add reactions</p>
-        </div>
+              <EmojiPicker
+                position="top"
+                onSelect={(emoji) => { handleReaction(showReactionPicker, emoji); }}
+                onClose={() => { setShowReactionPicker(null); setReactionPickerPos(null); chatInputRef.current?.focus(); }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {showReactionUsers && (
