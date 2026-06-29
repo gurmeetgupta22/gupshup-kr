@@ -152,7 +152,10 @@ const ChatInputInner = forwardRef<{ focus: () => void; openEmojiPicker?: () => v
           className="flex-1 border-none bg-transparent focus-visible:ring-0 text-base md:text-lg font-medium text-gray-900 placeholder:text-amber-300 outline-none"
           autoComplete="off"
           autoCorrect="off"
+          autoCapitalize="sentences"
           spellCheck="true"
+          inputMode="text"
+          enterKeyHint="send"
         />
         <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
           <Button

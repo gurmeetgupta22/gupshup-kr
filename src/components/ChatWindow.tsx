@@ -504,7 +504,8 @@ const MessageItem = memo(function MessageItem({
         data-msg-id={msg.id}
         initial={false}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className={`transition-all duration-700 ${highlightedMsgId === msg.id ? 'bg-amber-200/50 rounded-2xl -mx-2 px-2' : ''} ${isMe ? 'self-end flex flex-col items-end' : 'self-start flex items-end gap-2 md:gap-3'} min-w-0`}
+        className={`transition-all duration-700 select-none ${highlightedMsgId === msg.id ? 'bg-amber-200/50 rounded-2xl -mx-2 px-2' : ''} ${isMe ? 'self-end flex flex-col items-end' : 'self-start flex items-end gap-2 md:gap-3'} min-w-0`}
+        style={{ touchAction: 'manipulation' }}
         onPointerDown={(e) => handlePointerDown(e, msg)}
         onPointerUp={handlePointerUp}
         onPointerMove={handlePointerMove}
@@ -1332,6 +1333,7 @@ export function ChatWindow({
 
   const chatInputRef = useRef<{ focus: () => void; openEmojiPicker?: () => void }>(null);
   const [pendingReactionMsgId, setPendingReactionMsgId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const closeContextMenu = useCallback(() => {
     setContextMsg(null);
@@ -1342,8 +1344,8 @@ export function ChatWindow({
     setReactionTrayMsg(null);
     setReactionTrayPos(null);
     setPendingReactionMsgId(null);
-    chatInputRef.current?.focus();
-  }, []);
+    if (!isMobile) chatInputRef.current?.focus();
+  }, [isMobile]);
 
   const closeAll = useCallback(() => {
     setContextMsg(null);
@@ -1351,8 +1353,8 @@ export function ChatWindow({
     setReactionTrayMsg(null);
     setReactionTrayPos(null);
     setPendingReactionMsgId(null);
-    chatInputRef.current?.focus();
-  }, []);
+    if (!isMobile) chatInputRef.current?.focus();
+  }, [isMobile]);
 
   const handleReaction = useCallback(async (messageId: string, emoji: string) => {
     await addReaction(messageId, emoji, currentUserId);
@@ -1363,8 +1365,6 @@ export function ChatWindow({
     });
     closeAll();
   }, [addReaction, currentUserId, closeAll]);
-
-  const isMobile = useIsMobile();
 
   const handleReactionClick = useCallback((msg: any, emoji: string) => {
     addReaction(msg.id, emoji, currentUserId);
@@ -1422,6 +1422,11 @@ export function ChatWindow({
   const handlePointerDown = useCallback((e: React.PointerEvent, msg: any) => {
     // Only handle primary button (left click / touch)
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    // Prevent browser focus/selection changes on touch to keep long press intact
+    if (e.pointerType === 'touch') {
+      e.preventDefault();
+    }
 
     const now = Date.now();
     const lastTap = lastTapRef.current;
@@ -1489,8 +1494,15 @@ export function ChatWindow({
       }
     };
     const handleScroll = () => closeAll();
-    const handleResize = () => closeAll();
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') closeAll(); };
+    let lastOuterHeight = window.outerHeight;
+    const handleResize = () => {
+      const outerChanged = Math.abs(window.outerHeight - lastOuterHeight) > 30;
+      if (outerChanged) {
+        lastOuterHeight = window.outerHeight;
+        closeAll();
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('scroll', handleScroll, true);
     window.addEventListener('resize', handleResize);
@@ -1506,18 +1518,20 @@ export function ChatWindow({
   // Dismiss reaction tray when shown alone (double-tap): outside click + escape
   useEffect(() => {
     if (!reactionTrayMsg || contextMsg) return;
+    const trayOpenedAt = Date.now();
     const handleClickOutside = (e: MouseEvent) => {
+      if (Date.now() - trayOpenedAt < 200) return;
       const trayEl = document.querySelector('[data-reaction-tray]');
       if (trayEl && !trayEl.contains(e.target as Node)) {
         closeReactionTray();
       }
     };
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') closeReactionTray(); };
-    const timer = setTimeout(() => document.addEventListener('mousedown', handleClickOutside), 0);
+    const timer = setTimeout(() => document.addEventListener('click', handleClickOutside), 0);
     document.addEventListener('keydown', handleEsc);
     return () => {
       clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('click', handleClickOutside);
       document.removeEventListener('keydown', handleEsc);
     };
   }, [reactionTrayMsg, contextMsg, closeReactionTray]);

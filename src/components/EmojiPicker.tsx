@@ -86,14 +86,19 @@ export function EmojiPicker({ onSelect, onClose, position = 'top' }: EmojiPicker
     setRecentEmojis(getRecentEmojis());
   }, []);
 
+  const mountedAtRef = useRef(Date.now());
+
   useEffect(() => {
+    const mountedAt = Date.now();
+    mountedAtRef.current = mountedAt;
     const handleClickOutside = (e: MouseEvent) => {
+      if (Date.now() - mountedAt < 200) return;
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         onClose();
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [onClose]);
 
   const handleEmojiClick = (emoji: string) => {
