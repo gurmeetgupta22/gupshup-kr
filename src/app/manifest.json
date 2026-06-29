@@ -1,13 +1,57 @@
 {
   "name": "GupShup",
   "short_name": "GupShup",
-  "description": "Real-time chat with voice and video calls",
+  "description": "Real-time messaging with voice and video calls. Chat with friends, share media, and stay connected.",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait-primary",
   "scope": "/",
+  "lang": "en-US",
+  "categories": ["social", "communication", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Open Chats",
+      "short_name": "Chats",
+      "description": "View your conversations",
+      "url": "/chat",
+      "icons": [
+        {
+          "src": "/icon-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "New Chat",
+      "short_name": "New Chat",
+      "description": "Start a new conversation",
+      "url": "/chat?new=true",
+      "icons": [
+        {
+          "src": "/icon-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "short_name": "Profile",
+      "description": "View and edit your profile",
+      "url": "/chat?profile=true",
+      "icons": [
+        {
+          "src": "/icon-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "icons": [
     {
       "src": "/icon-72.png",
@@ -37,7 +81,14 @@
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-384.png",
@@ -47,7 +98,14 @@
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
@@ -55,15 +113,15 @@
       "src": "/screenshot-1.png",
       "sizes": "1080x2400",
       "type": "image/png",
-      "form_factor": "narrow"
+      "form_factor": "narrow",
+      "label": "Chat view on mobile"
     },
     {
       "src": "/screenshot-2.png",
       "sizes": "2700x1920",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "wide",
+      "label": "Desktop chat view"
     }
-  ],
-  "categories": ["social", "communication", "productivity"],
-  "lang": "en-US"
+  ]
 }
