@@ -16,6 +16,7 @@ const EmojiPicker = dynamic(() => import('./EmojiPicker').then(mod => mod.EmojiP
 const UserProfileModal = dynamic(() => import('./UserProfileModal').then(mod => mod.UserProfileModal), { ssr: false });
 import { setCurrentViewingChat } from '@/lib/notifications';
 
+
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const FLOATING_BG_EMOJIS = ['💬', '✨', '💜', '💙', '🔥', '😎', '💀', '👻', '⚡', '🎮', '💫', '🫠'];
 
@@ -707,7 +708,7 @@ export function ChatWindow({
     try { return JSON.parse(localStorage.getItem('gupshup_recent_reactions') || '[]'); } catch { return []; }
   });
   const [showReactionUsers, setShowReactionUsers] = useState<{ emoji: string; users: { id: string; name: string }[] } | null>(null);
-  const [tick, setTick] = useState(0);
+  const [newMessagesAvailable, setNewMessagesAvailable] = useState(false);
   const mountedRef = useRef(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const firstUnreadIndexRef = useRef<number>(-1);
@@ -736,14 +737,6 @@ export function ChatWindow({
   const otherParticipant = useMemo(() => chatInfo?.participants?.find((p: any) => p.user?.id !== currentUserId), [chatInfo, currentUserId]);
   const otherUser = useMemo(() => otherParticipant?.user, [otherParticipant]);
 
-  // Periodic tick to update seen status relative time
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(t => t + 1);
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Find the last sent message (newest message from current user)
   const lastSentMessage = useMemo(() => {
     if (!messages.length) return null;
@@ -755,18 +748,26 @@ export function ChatWindow({
     return null;
   }, [messages, currentUserId]);
 
+  // Pre-compute grouped reactions for all messages to avoid recomputing in the render loop
+  const allGroupedReactions = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    for (const msg of messages) {
+      if (msg.reactions?.length) {
+        map[msg.id] = msg.reactions.reduce((acc: Record<string, number>, r: any) => {
+          acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+          return acc;
+        }, {});
+      }
+    }
+    return map;
+  }, [messages]);
+
   const getLastMessageStatus = useCallback((msg: any) => {
     if (!otherUser?.id || !msg) return 'not_delivered';
     if (msg.read_by?.includes(otherUser.id)) return 'seen';
     if (msg.delivered_to?.includes(otherUser.id)) return 'delivered';
     return 'not_delivered';
   }, [otherUser]);
-
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, []);
 
   const scrollToMessage = useCallback((targetMsgId: string) => {
     const el = document.querySelector(`[data-msg-id="${targetMsgId}"]`);
@@ -791,25 +792,39 @@ export function ChatWindow({
     if (!container) return;
     const onScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container;
-      hasScrolledUpRef.current = scrollTop + clientHeight < scrollHeight - 50;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 100;
+      hasScrolledUpRef.current = !atBottom;
+      if (atBottom) {
+        setNewMessagesAvailable(false);
+      }
     };
-    container.addEventListener('scroll', onScroll);
+    container.addEventListener('scroll', onScroll, { passive: true });
+    // Check initial position
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    hasScrolledUpRef.current = scrollTop + clientHeight < scrollHeight - 100;
     return () => container.removeEventListener('scroll', onScroll);
-  }, [loading, chatInfo]);
+  }, [chatId]);
+
+  // ResizeObserver: when images load and increase scroll height, auto-scroll if at bottom
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(() => {
+      if (!hasScrolledUpRef.current) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [chatId]);
 
   // Auto-scroll: useLayoutEffect for immediate scroll after DOM mutations
   useLayoutEffect(() => {
-    // Don't do anything until the real chat UI (and its scroll container) is actually mounted.
-    // Messages can finish loading before chatInfo does — if we ran this while the loading
-    // spinner was still showing, messagesContainerRef.current would be null, the scroll
-    // would silently no-op, and we'd never get a second chance to scroll to the bottom.
     if (loading || !chatInfo) return;
     const container = messagesContainerRef.current;
     if (!container) return;
 
     if (!initialScrollDoneRef.current) {
-      // Initial load (or first render after the loading screen clears): jump straight to the
-      // latest message, no animation.
       if (messages.length > 0) {
         container.scrollTop = container.scrollHeight;
         initialScrollDoneRef.current = true;
@@ -819,13 +834,22 @@ export function ChatWindow({
     }
 
     if (messages.length > prevMessagesLengthRef.current) {
-      // New message arrived: only auto-scroll if the user is already at the bottom
       prevMessagesLengthRef.current = messages.length;
       if (!hasScrolledUpRef.current && messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      } else if (hasScrolledUpRef.current) {
+        setNewMessagesAvailable(true);
       }
     }
   }, [messages, loading, chatInfo]);
+
+  const scrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+    setNewMessagesAvailable(false);
+    hasScrolledUpRef.current = false;
+  }, []);
 
   useEffect(() => {
     async function fetchChatInfo() {
@@ -1309,13 +1333,13 @@ export function ChatWindow({
     }
   }, [chatId, currentUserId, sendMessage]);
 
-  const handleEdit = (msg: any) => {
+  const handleEdit = useCallback((msg: any) => {
     setEditingMessage(msg);
     setEditInput(msg.content);
     setContextMsg(null);
-  };
+  }, []);
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editingMessage || !editInput.trim()) return;
     setEditError(null);
     const result = await editMessage(editingMessage.id, editInput);
@@ -1325,21 +1349,23 @@ export function ChatWindow({
     }
     setEditingMessage(null);
     setEditInput('');
-  };
+  }, [editingMessage, editInput, editMessage]);
 
-  const handleDeleteEveryone = async (msgId: string) => {
+  const handleDeleteEveryone = useCallback(async (msgId: string) => {
     await deleteMessage(msgId);
     setContextMsg(null);
-  };
+  }, [deleteMessage]);
 
-  const handleDeleteForMe = async (msgId: string) => {
+  const handleDeleteForMe = useCallback(async (msgId: string) => {
     await deleteForMe(msgId, currentUserId);
     setContextMsg(null);
-  };
+  }, [deleteForMe, currentUserId]);
 
   const chatInputRef = useRef<{ focus: () => void; openEmojiPicker?: () => void }>(null);
   const [pendingReactionMsgId, setPendingReactionMsgId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+
+
 
   const handleCancelReply = useCallback(() => setReplyingTo(null), []);
 
@@ -1727,11 +1753,7 @@ export function ChatWindow({
             <AnimatePresence initial={false}>
               {messages.map((msg, i) => {
                 const isMe = msg.sender_id === currentUserId;
-                const reactions = msg.reactions || [];
-                const groupedReactions = reactions.reduce((acc: Record<string, number>, r: any) => {
-                  acc[r.emoji] = (acc[r.emoji] || 0) + 1;
-                  return acc;
-                }, {});
+                const groupedReactions = allGroupedReactions[msg.id] || {};
                 const isEditing = editingMessage?.id === msg.id;
                 return (
                   <React.Fragment key={msg.id}>
@@ -1777,6 +1799,23 @@ export function ChatWindow({
             </AnimatePresence>
             <div ref={messagesEndRef} />
           </div>
+          <AnimatePresence>
+            {newMessagesAvailable && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="sticky bottom-0 flex justify-center pb-2"
+              >
+                <button
+                  onClick={scrollToBottom}
+                  className="px-4 py-1.5 rounded-full bg-amber-500 text-white text-xs font-bold shadow-lg hover:bg-amber-400 transition-colors"
+                >
+                  New Messages ↓
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <AnimatePresence>
@@ -1882,6 +1921,7 @@ export function ChatWindow({
             </motion.div>
           )}
         </AnimatePresence>
+
 
         <ChatInput
           ref={chatInputRef}

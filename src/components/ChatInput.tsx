@@ -68,6 +68,10 @@ const ChatInputInner = forwardRef<{ focus: () => void; openEmojiPicker?: () => v
     }
   }, [onEmojiSelect]);
 
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  }, []);
+
   const handleCloseEmojis = useCallback(() => {
     setShowEmojis(false);
     inputRef.current?.focus();
@@ -144,7 +148,7 @@ const ChatInputInner = forwardRef<{ focus: () => void; openEmojiPicker?: () => v
         <input
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInputChange}
           onCompositionStart={() => { composingRef.current = true; }}
           onCompositionEnd={() => { composingRef.current = false; }}
           onKeyDown={handleKeyDown}
